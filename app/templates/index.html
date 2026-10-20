@@ -121,6 +121,46 @@
           </div>
         </div>
 
+        <!-- Sección Plantilla Institucional (con Logo) -->
+        <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800">
+          <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+            <span>Plantilla con Logo</span>
+            <span id="tpl-status-badge" class="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold px-1.5 py-0.5 rounded-full text-[10px]">Estándar</span>
+          </div>
+
+          <div class="bg-white dark:bg-slate-800/80 rounded-2xl p-3 border border-slate-200/80 dark:border-slate-700 space-y-2.5 text-xs">
+            <div class="flex items-start space-x-2.5">
+              <div class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                <i class="ph ph-buildings text-base"></i>
+              </div>
+              <div class="overflow-hidden flex-1">
+                <span id="tpl-name" class="font-semibold text-slate-800 dark:text-slate-200 block truncate">Diseño Predeterminado</span>
+                <span id="tpl-desc" class="text-[10px] text-slate-400 dark:text-slate-500 block leading-tight">Usa tu membrete y logo propio</span>
+              </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="grid grid-cols-2 gap-1.5 pt-1">
+              <label class="cursor-pointer px-2 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-medium rounded-xl text-center transition-colors flex items-center justify-center space-x-1">
+                <input type="file" id="template-upload" accept=".docx" class="hidden" onchange="handleTemplateUpload(event)">
+                <i class="ph ph-upload-simple"></i>
+                <span class="text-[11px]">Subir .docx</span>
+              </label>
+
+              <a href="/api/templates/model" download class="px-2 py-1.5 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl text-center transition-colors flex items-center justify-center space-x-1" title="Descargar plantilla base editable">
+                <i class="ph ph-download-simple"></i>
+                <span class="text-[11px]">Ver Modelo</span>
+              </a>
+            </div>
+
+            <div id="tpl-reset-container" class="hidden pt-1 text-center border-t border-slate-100 dark:border-slate-700/60">
+              <button onclick="resetTemplate()" class="text-[10px] text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 font-medium transition-colors">
+                ↺ Volver a plantilla estándar
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Sugerencias de Planeación -->
         <div>
           <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
@@ -286,6 +326,7 @@
     document.addEventListener("DOMContentLoaded", () => {
       initTheme();
       loadDocuments();
+      loadTemplateStatus();
     });
 
     function toggleSidebar() {
@@ -367,6 +408,79 @@
         text.textContent = `${selectedDocuments.size} plan(es) como contexto RAG`;
       } else {
         badge.classList.add("hidden");
+      }
+    }
+
+    // ── GESTIÓN DE PLANTILLAS INSTITUCIONALES (CON LOGO) ──
+    async function loadTemplateStatus() {
+      try {
+        const res = await fetch("/api/templates/status");
+        if (!res.ok) return;
+        const data = await res.json();
+        const badge = document.getElementById("tpl-status-badge");
+        const nameEl = document.getElementById("tpl-name");
+        const descEl = document.getElementById("tpl-desc");
+        const resetContainer = document.getElementById("tpl-reset-container");
+
+        if (data.has_custom_template) {
+          badge.className = "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold px-1.5 py-0.5 rounded-full text-[10px]";
+          badge.textContent = "Logo Activo";
+          nameEl.textContent = data.template_name || "Plantilla Personalizada";
+          descEl.textContent = "Tus Word saldrán con tu logo y diseño";
+          resetContainer.classList.remove("hidden");
+        } else {
+          badge.className = "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold px-1.5 py-0.5 rounded-full text-[10px]";
+          badge.textContent = "Estándar";
+          nameEl.textContent = "Diseño Predeterminado";
+          descEl.textContent = "Usa tu membrete y logo propio";
+          resetContainer.classList.add("hidden");
+        }
+      } catch (err) {
+        console.error("Error al cargar estado de plantilla:", err);
+      }
+    }
+
+    async function handleTemplateUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const notif = document.createElement("div");
+      notif.className = "fixed bottom-5 right-5 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg z-50 flex items-center space-x-2 animate-bounce";
+      notif.innerHTML = `<i class="ph ph-spinner animate-spin text-base"></i><span>Configurando plantilla ${file.name}...</span>`;
+      document.body.appendChild(notif);
+
+      try {
+        const res = await fetch("/api/templates/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok) {
+          notif.className = "fixed bottom-5 right-5 bg-emerald-600 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg z-50 flex items-center space-x-2";
+          notif.innerHTML = `<i class="ph ph-check-circle text-base"></i><span>¡Plantilla con logo activada correctamente!</span>`;
+          await loadTemplateStatus();
+        } else {
+          throw new Error(data.detail || "Error al subir");
+        }
+      } catch (err) {
+        notif.className = "fixed bottom-5 right-5 bg-rose-600 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg z-50 flex items-center space-x-2";
+        notif.innerHTML = `<i class="ph ph-warning-circle text-base"></i><span>${err.message}</span>`;
+      }
+
+      setTimeout(() => notif.remove(), 4000);
+      e.target.value = "";
+    }
+
+    async function resetTemplate() {
+      if (!confirm("¿Deseas volver a la plantilla estándar predeterminada?")) return;
+      try {
+        await fetch("/api/templates", { method: "DELETE" });
+        await loadTemplateStatus();
+      } catch (err) {
+        console.error("Error al resetear plantilla:", err);
       }
     }
 

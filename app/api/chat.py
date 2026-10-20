@@ -10,6 +10,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.ai.rag_pipeline import RAGPipeline
 from app.dependencies import get_optional_current_user
 from app.export.docx_builder import PlanDocxBuilder
+from app.export.template_manager import render_plan_to_docx
 from app.models.user import User
 from app.schemas.plan import (
     ActividadSecuencia,
@@ -71,8 +72,16 @@ async def chat_stream(
 
 
 @router.post("/export-docx", summary="Generar y descargar documento Word")
-async def export_docx(payload: ExportPlanRequest):
-    """Convierte los datos estructurados del plan a un archivo .docx profesional."""
+async def export_docx(
+    payload: ExportPlanRequest,
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Convierte los datos estructurados del plan a un archivo .docx profesional.
+
+    Si el docente ha configurado una plantilla institucional propia (con logo),
+    la utiliza rellenando los campos directamente sobre ella.
+    """
+    user_id = current_user.id if current_user else 1
     try:
         plan = PlanDiario(
             datos_generales=DatosGenerales(
@@ -110,8 +119,7 @@ async def export_docx(payload: ExportPlanRequest):
             ),
         )
 
-        builder = PlanDocxBuilder()
-        docx_buffer = builder.build(plan)
+        docx_buffer = render_plan_to_docx(plan, user_id=user_id)
 
         filename = f"Plan_Diario_{payload.materia.replace(' ', '_')}.docx"
 

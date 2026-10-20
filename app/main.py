@@ -10,8 +10,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.documents import router as documents_router
+from app.api.templates import router as templates_router
 from app.config import get_settings
 from app.db import Base, engine
+from app.export.template_manager import create_base_model_template
 
 settings = get_settings()
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -27,6 +29,9 @@ async def lifespan(app: FastAPI):
     settings.upload_path
     settings.generated_path
     Path(settings.chroma_persist_dir).mkdir(parents=True, exist_ok=True)
+
+    # Crear plantilla modelo base descargable
+    create_base_model_template()
 
     # Inicializar tablas en SQLite
     async with engine.begin() as conn:
@@ -60,6 +65,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(templates_router, prefix="/api")
 
 
 # ── Interfaz Principal (Estilo Gemini) ──
