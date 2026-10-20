@@ -1,0 +1,38 @@
+# Proyecto Kantan
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Entorno
+.env
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Base de datos
+*.db
+*.db-journal
+
+# Archivos generados / subidos
+uploads/
+generated/
+chroma_data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests / Coverage
+htmlcov/
+.coverage
+.pytest_cache/

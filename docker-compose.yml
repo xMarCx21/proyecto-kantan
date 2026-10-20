@@ -1,0 +1,23 @@
+services:
+  kantan-app:
+    build: .
+    container_name: proyecto-kantan
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - DEBUG=false
+      - DATABASE_URL=sqlite+aiosqlite:///./kantan.db
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - kantan_uploads:/app/uploads
+      - kantan_generated:/app/generated
+      - kantan_chroma:/app/chroma_data
+      - kantan_db:/app/db_data
+    restart: unless-stopped
+
+volumes:
+  kantan_uploads:
+  kantan_generated:
+  kantan_chroma:
+  kantan_db:

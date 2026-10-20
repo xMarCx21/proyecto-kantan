@@ -1,0 +1,1 @@
+"""Proyecto Kantan - Paquete principal."""

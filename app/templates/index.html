@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proyecto Kantan — Asistente de Planificación Docente</title>
+  <!-- Tailwind CSS CDN con soporte de Modo Oscuro -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Marked.js para renderizar Markdown con alta calidad -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Phosphor Icons para iconografía moderna tipo Gemini -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            gemini: {
+              50: '#f0f4f9',
+              100: '#e1e9f4',
+              200: '#c5d5ea',
+              500: '#1a73e8',
+              600: '#1557b0',
+              700: '#0d47a1',
+              dark: '#131314',
+              surface: '#1e1f20',
+              sidebar: '#f0f4f9',
+              sidebardark: '#18191a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Estilos personalizados tipo Gemini para Markdown */
+    .chat-bubble-assistant h1, .chat-bubble-assistant h2, .chat-bubble-assistant h3 {
+      font-weight: 700;
+      margin-top: 0.8rem;
+      margin-bottom: 0.3rem;
+    }
+    .chat-bubble-assistant h1 { font-size: 1.35rem; }
+    .chat-bubble-assistant h2 { font-size: 1.2rem; }
+    .chat-bubble-assistant h3 { font-size: 1.05rem; }
+    .chat-bubble-assistant ul { list-style-type: disc; margin-left: 1.3rem; margin-bottom: 0.5rem; }
+    .chat-bubble-assistant ol { list-style-type: decimal; margin-left: 1.3rem; margin-bottom: 0.5rem; }
+    .chat-bubble-assistant p { margin-bottom: 0.5rem; line-height: 1.6; }
+    
+    /* Modo Claro vs Oscuro en tipografía generada */
+    html:not(.dark) .chat-bubble-assistant h1,
+    html:not(.dark) .chat-bubble-assistant h2,
+    html:not(.dark) .chat-bubble-assistant h3,
+    html:not(.dark) .chat-bubble-assistant strong {
+      color: #0f172a;
+    }
+    html.dark .chat-bubble-assistant h1,
+    html.dark .chat-bubble-assistant h2,
+    html.dark .chat-bubble-assistant h3,
+    html.dark .chat-bubble-assistant strong {
+      color: #f8fafc;
+    }
+    html.dark .chat-bubble-assistant {
+      color: #cbd5e1;
+    }
+  </style>
+</head>
+<body class="h-full flex overflow-hidden text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-gemini-dark font-sans antialiased transition-colors duration-200">
+
+  <!-- SIDEBAR (Historial y Documentos RAG) -->
+  <aside id="sidebar" class="w-80 bg-gemini-sidebar dark:bg-gemini-sidebardark border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between transition-all duration-300 z-30 shrink-0">
+    <div class="p-4 flex flex-col h-full overflow-hidden">
+      <!-- Logo y Autor (Made by MarC) -->
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 flex items-center justify-center text-white shadow-sm shrink-0">
+            <i class="ph-bold ph-sparkle text-lg"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <h1 class="font-bold text-slate-900 dark:text-white text-lg leading-tight tracking-tight">Kantan</h1>
+              <span class="text-[10px] font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-1.5 py-0.2 rounded-md shadow-xs">Made by MarC</span>
+            </div>
+            <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Planificación con IA</p>
+          </div>
+        </div>
+        <button onclick="toggleSidebar()" class="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors">
+          <i class="ph ph-sidebar text-xl"></i>
+        </button>
+      </div>
+
+      <!-- Botón Nueva Sesión -->
+      <button onclick="startNewChat()" class="w-full flex items-center space-x-3 px-4 py-3 bg-white dark:bg-slate-800/90 hover:bg-slate-100/90 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700 transition-all font-medium text-sm mb-5 group">
+        <i class="ph ph-plus-circle text-lg text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform"></i>
+        <span>Nueva planeación</span>
+      </button>
+
+      <!-- Sección Documentos RAG (Planes anteriores) -->
+      <div class="flex-1 overflow-y-auto pr-1 space-y-4">
+        <div>
+          <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+            <span>Contexto Histórico (RAG)</span>
+            <span id="doc-count" class="bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold px-1.5 py-0.5 rounded-full text-[10px]">0</span>
+          </div>
+          
+          <!-- Subir Documento Botón/Área -->
+          <label class="cursor-pointer block border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 rounded-xl p-3 text-center transition-all bg-white/60 dark:bg-slate-800/50 hover:bg-blue-50/50 dark:hover:bg-slate-800 mb-3 group">
+            <input type="file" id="file-upload" accept=".docx,.txt" class="hidden" onchange="handleFileUpload(event)">
+            <div class="flex flex-col items-center justify-center space-y-1">
+              <i class="ph ph-file-arrow-up text-xl text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:-translate-y-0.5 transition-all"></i>
+              <span class="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-blue-700 dark:group-hover:text-blue-300">Subir plan anterior (.docx)</span>
+              <span class="text-[10px] text-slate-400 dark:text-slate-500">Para usarlo como modelo de referencia</span>
+            </div>
+          </label>
+
+          <!-- Lista de Documentos Seleccionables -->
+          <div id="documents-list" class="space-y-1.5 text-xs">
+            <div class="p-3 bg-white/70 dark:bg-slate-800/40 rounded-xl text-slate-400 dark:text-slate-500 text-center italic text-[11px] border border-slate-100 dark:border-slate-800">
+              No hay documentos subidos aún.<br>Sube un .docx para darle contexto a la IA.
+            </div>
+          </div>
+        </div>
+
+        <!-- Sugerencias de Planeación -->
+        <div>
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+            Ejemplos para probar
+          </div>
+          <div class="space-y-1 text-xs">
+            <button onclick="fillPrompt('Crea un plan diario para 4° Grado en Matemáticas sobre Fracciones Propias e Impropias. Duración 50 minutos con actividad lúdica grupal.')" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 truncate transition-colors">
+              📐 Fracciones para 4° grado
+            </button>
+            <button onclick="fillPrompt('Arma un plan de clase de Ciencias Naturales para 6° grado sobre el Ciclo del Agua y los cambios de estado. Incluye una experiencia práctica de laboratorio.')" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 truncate transition-colors">
+              🔬 Ciclo del agua con laboratorio
+            </button>
+            <button onclick="fillPrompt('Genera una clase de Lengua y Literatura para 2° año sobre Cuentos Policiales. Foco en indicios, sospechosos y deducción lógica. 60 minutos.')" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 truncate transition-colors">
+              📖 Cuentos Policiales (Secundaria)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pie de Sidebar -->
+      <div class="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+        <span class="flex items-center space-x-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Kantan v0.1</span>
+        </span>
+        <a href="/docs" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400 font-medium">Swagger API</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ÁREA PRINCIPAL DE CHAT (Estilo Gemini) -->
+  <main class="flex-1 flex flex-col h-full bg-white dark:bg-gemini-dark relative overflow-hidden transition-colors duration-200">
+    <!-- Barra Superior -->
+    <header class="h-14 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 bg-white/80 dark:bg-gemini-dark/80 backdrop-blur-md z-10">
+      <div class="flex items-center space-x-3">
+        <button id="toggle-sidebar-mobile" onclick="toggleSidebar()" class="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+          <i class="ph ph-list text-xl"></i>
+        </button>
+        <span class="font-semibold text-slate-800 dark:text-slate-100 text-sm flex items-center space-x-2">
+          <span>Planificador Pedagógico Kantan</span>
+          <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 hidden sm:inline">· Made by MarC</span>
+          <span class="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200/60 dark:border-blue-900">v0.1</span>
+        </span>
+      </div>
+      
+      <div class="flex items-center space-x-3">
+        <!-- Badge de Contexto RAG seleccionado -->
+        <div id="selected-context-badge" class="hidden text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/80 px-2.5 py-1 rounded-full border border-blue-200 dark:border-blue-800 flex items-center space-x-1">
+          <i class="ph ph-file-text"></i>
+          <span id="selected-context-text">0 documentos como contexto</span>
+        </div>
+
+        <!-- Botón de Modo Oscuro / Claro -->
+        <button id="theme-toggle" onclick="toggleTheme()" class="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors flex items-center space-x-1.5 text-xs font-medium" title="Cambiar tema">
+          <i id="theme-icon" class="ph ph-moon text-lg"></i>
+          <span id="theme-text" class="hidden sm:inline">Oscuro</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Contenedor de Mensajes -->
+    <div id="chat-messages" class="flex-1 overflow-y-auto px-4 md:px-16 lg:px-32 py-6 space-y-6">
+      
+      <!-- Pantalla de Bienvenida (se oculta al chatear) -->
+      <div id="welcome-view" class="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-12">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center text-white text-3xl shadow-lg mb-6">
+          <i class="ph-bold ph-chalkboard-teacher"></i>
+        </div>
+        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
+          ¡Hola, Profe! ¿Qué clase planificamos hoy?
+        </h2>
+        <p class="text-slate-500 dark:text-slate-400 text-sm max-w-md mb-8 leading-relaxed">
+          Pídeme estructurar un <strong>Plan Diario</strong> de clase para cualquier materia y grado. Puedo basarme en tus documentos anteriores y exportar todo listo a formato <strong>Word (.docx)</strong>.
+        </p>
+
+        <!-- Tarjetas interactivas -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full text-left">
+          <div onclick="fillPrompt('Crea un plan diario de Matemática para 5° Grado sobre Área y Perímetro de figuras simples. 50 minutos con ejercicios prácticos.')" class="p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-blue-50/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 rounded-2xl cursor-pointer transition-all">
+            <i class="ph ph-shapes text-blue-600 dark:text-blue-400 text-xl mb-2 block"></i>
+            <h4 class="font-semibold text-slate-800 dark:text-slate-100 text-xs mb-1">Geometría 5° Grado</h4>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">Área y perímetro con actividades guiadas.</p>
+          </div>
+          <div onclick="fillPrompt('Arma una clase de Ciencias Sociales para 6° grado sobre Circuitos Productivos en Argentina. 60 minutos, análisis de mapas y puesta en común.')" class="p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-blue-50/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 rounded-2xl cursor-pointer transition-all">
+            <i class="ph ph-globe-hemisphere-west text-emerald-600 dark:text-emerald-400 text-xl mb-2 block"></i>
+            <h4 class="font-semibold text-slate-800 dark:text-slate-100 text-xs mb-1">Ciencias Sociales</h4>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">Circuitos productivos y geografía económica.</p>
+          </div>
+          <div onclick="fillPrompt('Diseña un plan de clase de Lengua sobre Texto Argumentativo para 1° año secundario. Debate grupal sobre redes sociales. 50 min.')" class="p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-blue-50/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 rounded-2xl cursor-pointer transition-all">
+            <i class="ph ph-chats-circle text-purple-600 dark:text-purple-400 text-xl mb-2 block"></i>
+            <h4 class="font-semibold text-slate-800 dark:text-slate-100 text-xs mb-1">Debate Argumentativo</h4>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">Posturas críticas y debate para secundaria.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- BARRA DE ENTRADA FIJA ABAJO (Gemini Style) -->
+    <div class="p-4 md:px-16 lg:px-32 bg-white/90 dark:bg-gemini-dark/90 backdrop-blur-md">
+      <form id="chat-form" onsubmit="handleChatSubmit(event)" class="relative bg-gemini-50 dark:bg-slate-800/80 hover:bg-slate-100/90 dark:hover:bg-slate-800 focus-within:bg-white dark:focus-within:bg-slate-800/95 focus-within:ring-2 focus-within:ring-blue-500/50 border border-slate-200/80 dark:border-slate-700 rounded-3xl transition-all shadow-sm">
+        <textarea
+          id="chat-input"
+          rows="1"
+          placeholder="Escribe el tema, grado o instrucciones para tu nueva clase..."
+          class="w-full pl-5 pr-28 py-3.5 bg-transparent resize-none outline-none text-slate-800 dark:text-slate-100 text-sm max-h-36 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+          onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleChatSubmit(event); }"
+          oninput="this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'"
+        ></textarea>
+        
+        <div class="absolute right-2.5 bottom-2.5 flex items-center space-x-1.5">
+          <!-- Botón de subir doc rápido -->
+          <label title="Adjuntar documento" class="p-2 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 rounded-full cursor-pointer transition-colors">
+            <input type="file" accept=".docx,.txt" class="hidden" onchange="handleFileUpload(event)">
+            <i class="ph ph-paperclip text-lg"></i>
+          </label>
+          <!-- Botón de enviar -->
+          <button type="submit" id="send-button" class="w-9 h-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-sm disabled:opacity-50">
+            <i class="ph-bold ph-arrow-up text-base"></i>
+          </button>
+        </div>
+      </form>
+      <p class="text-[11px] text-center text-slate-400 dark:text-slate-500 mt-2">
+        Kantan puede consultar tus documentos históricos para asegurar continuidad pedagógica y exportar en .docx
+      </p>
+    </div>
+  </main>
+
+  <script>
+    let chatHistory = [];
+    let selectedDocuments = new Set();
+
+    // ── GESTIÓN DE TEMA (MODO OSCURO / CLARO) ──
+    function initTheme() {
+      const savedTheme = localStorage.getItem("kantan-theme");
+      if (savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+        document.documentElement.classList.add("dark");
+        updateThemeUI(true);
+      } else {
+        document.documentElement.classList.remove("dark");
+        updateThemeUI(false);
+      }
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle("dark");
+      localStorage.setItem("kantan-theme", isDark ? "dark" : "light");
+      updateThemeUI(isDark);
+    }
+
+    function updateThemeUI(isDark) {
+      const icon = document.getElementById("theme-icon");
+      const text = document.getElementById("theme-text");
+      if (isDark) {
+        icon.className = "ph ph-sun text-lg text-amber-400";
+        text.textContent = "Claro";
+      } else {
+        icon.className = "ph ph-moon text-lg text-slate-600";
+        text.textContent = "Oscuro";
+      }
+    }
+
+    // Inicializar al cargar
+    document.addEventListener("DOMContentLoaded", () => {
+      initTheme();
+      loadDocuments();
+    });
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById("sidebar");
+      sidebar.classList.toggle("-ml-80");
+    }
+
+    function fillPrompt(text) {
+      const input = document.getElementById("chat-input");
+      input.value = text;
+      input.style.height = 'auto';
+      input.style.height = input.scrollHeight + 'px';
+      input.focus();
+    }
+
+    function startNewChat() {
+      chatHistory = [];
+      document.getElementById("chat-messages").innerHTML = `
+        <div id="welcome-view" class="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto py-12">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center text-white text-3xl shadow-lg mb-6">
+            <i class="ph-bold ph-chalkboard-teacher"></i>
+          </div>
+          <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">¡Hola, Profe! ¿Qué clase planificamos hoy?</h2>
+          <p class="text-slate-500 dark:text-slate-400 text-sm max-w-md mb-8 leading-relaxed">Pídeme estructurar un <strong>Plan Diario</strong> de clase y descárgalo listo a Word (.docx).</p>
+        </div>
+      `;
+      document.getElementById("chat-input").value = "";
+    }
+
+    async function loadDocuments() {
+      try {
+        const res = await fetch("/api/documents");
+        if (!res.ok) return;
+        const docs = await res.json();
+        const listEl = document.getElementById("documents-list");
+        const countEl = document.getElementById("doc-count");
+        countEl.textContent = docs.length;
+
+        if (docs.length === 0) {
+          listEl.innerHTML = `
+            <div class="p-3 bg-white/70 dark:bg-slate-800/40 rounded-xl text-slate-400 dark:text-slate-500 text-center italic text-[11px] border border-slate-100 dark:border-slate-800">
+              No hay documentos subidos aún.<br>Sube un .docx para darle contexto a la IA.
+            </div>
+          `;
+          return;
+        }
+
+        listEl.innerHTML = docs.map(d => `
+          <div class="flex items-center justify-between p-2.5 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 hover:border-blue-400 dark:hover:border-blue-500 transition-all">
+            <div class="flex items-center space-x-2.5 overflow-hidden">
+              <input type="checkbox" id="doc-${d.id}" value="${d.id}" onchange="toggleDocContext(${d.id})" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+              <label for="doc-${d.id}" class="truncate cursor-pointer">
+                <span class="font-medium text-slate-800 dark:text-slate-200 block truncate">${d.original_name}</span>
+                <span class="text-[10px] text-slate-400 dark:text-slate-500">${d.subject || 'General'} · ${d.chunk_count} chunks</span>
+              </label>
+            </div>
+            <span class="w-2 h-2 rounded-full ${d.processing_status === 'processed' ? 'bg-emerald-500' : 'bg-amber-400'} shrink-0 ml-1"></span>
+          </div>
+        `).join("");
+      } catch (err) {
+        console.error("Error al cargar documentos:", err);
+      }
+    }
+
+    function toggleDocContext(docId) {
+      if (selectedDocuments.has(docId)) {
+        selectedDocuments.delete(docId);
+      } else {
+        selectedDocuments.add(docId);
+      }
+      updateContextBadge();
+    }
+
+    function updateContextBadge() {
+      const badge = document.getElementById("selected-context-badge");
+      const text = document.getElementById("selected-context-text");
+      if (selectedDocuments.size > 0) {
+        badge.classList.remove("hidden");
+        text.textContent = `${selectedDocuments.size} plan(es) como contexto RAG`;
+      } else {
+        badge.classList.add("hidden");
+      }
+    }
+
+    async function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const notif = document.createElement("div");
+      notif.className = "fixed bottom-5 right-5 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg z-50 flex items-center space-x-2 animate-bounce";
+      notif.innerHTML = `<i class="ph ph-spinner animate-spin text-base"></i><span>Subiendo e indexando ${file.name}...</span>`;
+      document.body.appendChild(notif);
+
+      try {
+        const res = await fetch("/api/documents/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        notif.className = "fixed bottom-5 right-5 bg-emerald-600 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg z-50 flex items-center space-x-2";
+        notif.innerHTML = `<i class="ph ph-check-circle text-base"></i><span>¡Listo! ${file.name} procesado (${data.chunks || 0} fragmentos).</span>`;
+        await loadDocuments();
+      } catch (err) {
+        notif.className = "fixed bottom-5 right-5 bg-rose-600 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg z-50 flex items-center space-x-2";
+        notif.innerHTML = `<i class="ph ph-warning-circle text-base"></i><span>Error al subir archivo.</span>`;
+      }
+
+      setTimeout(() => notif.remove(), 4000);
+      e.target.value = "";
+    }
+
+    async function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById("chat-input");
+      const message = input.value.trim();
+      if (!message) return;
+
+      // Ocultar bienvenida
+      const welcome = document.getElementById("welcome-view");
+      if (welcome) welcome.remove();
+
+      input.value = "";
+      input.style.height = "auto";
+
+      // Renderizar mensaje del usuario
+      appendUserMessage(message);
+
+      // Crear burbuja del asistente
+      const assistantBubble = appendAssistantPlaceholder();
+
+      // Guardar en historial
+      chatHistory.push({ role: "user", content: message });
+
+      try {
+        const res = await fetch("/api/chat/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: message,
+            document_ids: Array.from(selectedDocuments),
+            history: chatHistory,
+          }),
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let assistantText = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const chunkStr = decoder.decode(value);
+          const lines = chunkStr.split("\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const token = line.replace("data: ", "");
+              assistantText += token;
+              assistantBubble.querySelector(".content").innerHTML = marked.parse(assistantText);
+              scrollToBottom();
+            }
+          }
+        }
+
+        chatHistory.push({ role: "assistant", content: assistantText });
+
+        // Añadir tarjeta de exportación a Word automática
+        appendExportCard(assistantBubble, message);
+
+      } catch (err) {
+        assistantBubble.querySelector(".content").innerHTML = `<p class="text-rose-500 font-medium">Hubo un error al procesar tu solicitud: ${err.message}</p>`;
+      }
+    }
+
+    function appendUserMessage(text) {
+      const messagesContainer = document.getElementById("chat-messages");
+      const wrapper = document.createElement("div");
+      wrapper.className = "flex justify-end";
+      wrapper.innerHTML = `
+        <div class="max-w-[80%] md:max-w-[70%] bg-blue-600 text-white rounded-3xl rounded-tr-sm px-5 py-3.5 shadow-sm text-sm leading-relaxed">
+          ${text.replace(/\n/g, '<br>')}
+        </div>
+      `;
+      messagesContainer.appendChild(wrapper);
+      scrollToBottom();
+    }
+
+    function appendAssistantPlaceholder() {
+      const messagesContainer = document.getElementById("chat-messages");
+      const wrapper = document.createElement("div");
+      wrapper.className = "flex space-x-3 items-start";
+      wrapper.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-sky-400 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+          <i class="ph ph-sparkle text-sm"></i>
+        </div>
+        <div class="flex-1 bg-gemini-50 dark:bg-slate-800/80 rounded-3xl rounded-tl-sm p-5 text-sm border border-slate-200/60 dark:border-slate-700/80 chat-bubble-assistant transition-colors">
+          <div class="content text-slate-700 dark:text-slate-300">
+            <span class="inline-block animate-pulse text-slate-400">Generando planificación didáctica...</span>
+          </div>
+          <div class="export-area mt-4 pt-3 border-t border-slate-200/70 dark:border-slate-700 hidden"></div>
+        </div>
+      `;
+      messagesContainer.appendChild(wrapper);
+      scrollToBottom();
+      return wrapper;
+    }
+
+    function appendExportCard(assistantBubble, userPrompt) {
+      const exportArea = assistantBubble.querySelector(".export-area");
+      exportArea.classList.remove("hidden");
+      exportArea.innerHTML = `
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900/90 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold">
+              <i class="ph ph-file-doc text-lg"></i>
+            </div>
+            <div>
+              <div class="font-semibold text-xs text-slate-900 dark:text-white">Documento Oficial de Plan Diario</div>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400">Formateado con Inicio, Desarrollo, Cierre y Evaluación</div>
+            </div>
+          </div>
+          <button onclick="downloadDocx('${encodeURIComponent(userPrompt)}')" class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow-sm transition-all hover:shadow">
+            <i class="ph-bold ph-download-simple"></i>
+            <span>Descargar Word (.docx)</span>
+          </button>
+        </div>
+      `;
+      scrollToBottom();
+    }
+
+    async function downloadDocx(promptEncoded) {
+      const prompt = decodeURIComponent(promptEncoded);
+      const res = await fetch("/api/chat/export-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          materia: "Planificación Docente",
+          grado: "Clase Diaria",
+          tema: prompt.slice(0, 50),
+          objetivo: `Objetivo pedagógico generado para: ${prompt}`,
+          contenidos: ["Conceptos nodales de la clase", "Estrategias de resolución", "Actividades prácticas"],
+          inicio_desc: "Recuperación de ideas previas y consigna disparadora inicial.",
+          inicio_duracion: 10,
+          inicio_actividades: ["Preguntas guía", "Debate introductorio"],
+          desarrollo_desc: "Trabajo activo en secuencias didácticas y resolución colaborativa.",
+          desarrollo_duracion: 30,
+          desarrollo_actividades: ["Ejercitación práctica", "Puesta en común por equipos"],
+          cierre_desc: "Evaluación formativa, resolución de dudas y ticket de salida.",
+          cierre_duracion: 10,
+          cierre_actividades: ["Síntesis final", "Rúbrica de autoevaluación"],
+          recursos: ["Material bibliográfico", "Pizarrón / Proyector", "Fichas de trabajo"],
+          evaluacion_tipo: "Formativa y Continua",
+          evaluacion_desc: "Monitoreo del desempeño y participación grupal.",
+          evaluacion_criterios: ["Comprensión conceptual", "Colaboración", "Entrega de actividades"],
+        })
+      });
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Plan_Diario_Kantan.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function scrollToBottom() {
+      const container = document.getElementById("chat-messages");
+      container.scrollTop = container.scrollHeight;
+    }
+  </script>
+</body>
+</html>
