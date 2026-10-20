@@ -1,4 +1,4 @@
-# 📝 Proyecto Kantan — Asistente de Planificación Docente con IA
+# 📝 Proyecto Keyoku — Asistente de Planificación Docente con IA
 *Made with ❤️ by MarC*
 
 Aplicación web diseñada para profesores y docentes que automatiza la creación de **Planes Diarios de Clase** utilizando Inteligencia Artificial (**Google Gemini 2.0**) y un sistema de recuperación documental (**RAG** con ChromaDB). Permite subir planificaciones de años anteriores en Word (.docx), seleccionarlas como contexto pedagógico, interactuar mediante un chat moderno e intuitivo y descargar el resultado final listo en formato Word (.docx).
