@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Proyecto Kantan — Asistente de Planificación Docente</title>
+  <title>Keyoku — Asistente de Planificación Docente</title>
   <!-- Tailwind CSS CDN con soporte de Modo Oscuro -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Marked.js para renderizar Markdown con alta calidad -->
@@ -67,126 +67,128 @@
 </head>
 <body class="h-full flex overflow-hidden text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-gemini-dark font-sans antialiased transition-colors duration-200">
 
-  <!-- SIDEBAR (Historial y Documentos RAG) -->
+  <!-- SIDEBAR (Historial, Documentos RAG y Plantillas) -->
   <aside id="sidebar" class="w-80 bg-gemini-sidebar dark:bg-gemini-sidebardark border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between transition-all duration-300 z-30 shrink-0">
-    <div class="p-4 flex flex-col h-full overflow-hidden">
-      <!-- Logo y Autor (Made by MarC) -->
-      <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 flex items-center justify-center text-white shadow-sm shrink-0">
-            <i class="ph-bold ph-sparkle text-lg"></i>
+    <div class="p-3.5 flex flex-col h-full overflow-hidden">
+      <!-- Logo y Autor (Made by MarC con enlace a GitHub) -->
+      <div class="flex items-center justify-between mb-2.5">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 flex items-center justify-center text-white shadow-sm shrink-0">
+            <i class="ph-bold ph-sparkle text-base"></i>
           </div>
           <div>
             <div class="flex items-center space-x-1.5">
-              <h1 class="font-bold text-slate-900 dark:text-white text-lg leading-tight tracking-tight">Kantan</h1>
-              <span class="text-[10px] font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-1.5 py-0.2 rounded-md shadow-xs">Made by MarC</span>
+              <h1 class="font-bold text-slate-900 dark:text-white text-base leading-tight tracking-tight">Keyoku</h1>
+              <span class="text-[9px] font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-1.5 py-0.5 rounded-md shadow-xs">
+                Made by <a href="https://github.com/xMarCx21" target="_blank" rel="noopener noreferrer" class="underline hover:text-sky-200 transition-colors">MarC</a>
+              </span>
             </div>
-            <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Planificación con IA</p>
+            <p class="text-[10px] font-medium text-slate-500 dark:text-slate-400">Planificación con IA</p>
           </div>
         </div>
-        <button onclick="toggleSidebar()" class="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors">
-          <i class="ph ph-sidebar text-xl"></i>
+        <button onclick="toggleSidebar()" class="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Ocultar barra lateral">
+          <i class="ph ph-sidebar text-lg"></i>
         </button>
       </div>
 
       <!-- Botón Nueva Sesión -->
-      <button onclick="startNewChat()" class="w-full flex items-center space-x-3 px-4 py-3 bg-white dark:bg-slate-800/90 hover:bg-slate-100/90 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700 transition-all font-medium text-sm mb-5 group">
-        <i class="ph ph-plus-circle text-lg text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform"></i>
+      <button onclick="startNewChat()" class="w-full flex items-center space-x-2.5 px-3 py-2 bg-white dark:bg-slate-800/90 hover:bg-slate-100/90 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-700 transition-all font-medium text-xs mb-2.5 group">
+        <i class="ph ph-plus-circle text-base text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform"></i>
         <span>Nueva planeación</span>
       </button>
 
-      <!-- Sección Documentos RAG (Planes anteriores) -->
-      <div class="flex-1 overflow-y-auto pr-1 space-y-4">
+      <!-- Contenedor con scroll interno para elementos laterales -->
+      <div class="flex-1 overflow-y-auto pr-1 space-y-2.5 text-xs">
+        
+        <!-- Sección 1: Documentos RAG (Planes anteriores) -->
         <div>
-          <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+          <div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
             <span>Contexto Histórico (RAG)</span>
             <span id="doc-count" class="bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold px-1.5 py-0.5 rounded-full text-[10px]">0</span>
           </div>
           
           <!-- Subir Documento Botón/Área -->
-          <label class="cursor-pointer block border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 rounded-xl p-3 text-center transition-all bg-white/60 dark:bg-slate-800/50 hover:bg-blue-50/50 dark:hover:bg-slate-800 mb-3 group">
+          <label class="cursor-pointer block border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 rounded-xl p-2 text-center transition-all bg-white/60 dark:bg-slate-800/50 hover:bg-blue-50/50 dark:hover:bg-slate-800 mb-2 group">
             <input type="file" id="file-upload" accept=".docx,.txt" class="hidden" onchange="handleFileUpload(event)">
-            <div class="flex flex-col items-center justify-center space-y-1">
-              <i class="ph ph-file-arrow-up text-xl text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:-translate-y-0.5 transition-all"></i>
-              <span class="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-blue-700 dark:group-hover:text-blue-300">Subir plan anterior (.docx)</span>
-              <span class="text-[10px] text-slate-400 dark:text-slate-500">Para usarlo como modelo de referencia</span>
+            <div class="flex flex-col items-center justify-center space-y-0.5">
+              <i class="ph ph-file-arrow-up text-lg text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"></i>
+              <span class="text-[11px] font-medium text-slate-600 dark:text-slate-300 group-hover:text-blue-700 dark:group-hover:text-blue-300">Subir plan anterior (.docx)</span>
+              <span class="text-[9px] text-slate-400 dark:text-slate-500">Modelo de referencia pedagógica</span>
             </div>
           </label>
 
           <!-- Lista de Documentos Seleccionables -->
-          <div id="documents-list" class="space-y-1.5 text-xs">
-            <div class="p-3 bg-white/70 dark:bg-slate-800/40 rounded-xl text-slate-400 dark:text-slate-500 text-center italic text-[11px] border border-slate-100 dark:border-slate-800">
-              No hay documentos subidos aún.<br>Sube un .docx para darle contexto a la IA.
+          <div id="documents-list" class="space-y-1">
+            <div class="p-2 bg-white/70 dark:bg-slate-800/40 rounded-xl text-slate-400 dark:text-slate-500 text-center italic text-[10px] border border-slate-100 dark:border-slate-800">
+              No hay documentos subidos aún.
             </div>
           </div>
         </div>
 
-        <!-- Sección Plantilla Institucional (con Logo) -->
+        <!-- Sección 2: Plantilla Institucional (con Logo) -->
         <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800">
-          <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+          <div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
             <span>Plantilla con Logo</span>
             <span id="tpl-status-badge" class="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold px-1.5 py-0.5 rounded-full text-[10px]">Estándar</span>
           </div>
 
-          <div class="bg-white dark:bg-slate-800/80 rounded-2xl p-3 border border-slate-200/80 dark:border-slate-700 space-y-2.5 text-xs">
-            <div class="flex items-start space-x-2.5">
-              <div class="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
-                <i class="ph ph-buildings text-base"></i>
+          <div class="bg-white dark:bg-slate-800/80 rounded-xl p-2.5 border border-slate-200/80 dark:border-slate-700 space-y-2">
+            <div class="flex items-start space-x-2">
+              <div class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                <i class="ph ph-buildings text-sm"></i>
               </div>
-              <div class="overflow-hidden flex-1">
-                <span id="tpl-name" class="font-semibold text-slate-800 dark:text-slate-200 block truncate">Diseño Predeterminado</span>
-                <span id="tpl-desc" class="text-[10px] text-slate-400 dark:text-slate-500 block leading-tight">Usa tu membrete y logo propio</span>
+              <div class="overflow-hidden flex-1 leading-tight">
+                <span id="tpl-name" class="font-semibold text-slate-800 dark:text-slate-200 block truncate text-[11px]">Diseño Predeterminado</span>
+                <span id="tpl-desc" class="text-[9.5px] text-slate-400 dark:text-slate-500 block truncate">Usa tu membrete y logo propio</span>
               </div>
             </div>
 
-            <!-- Botones de Acción -->
-            <div class="grid grid-cols-2 gap-1.5 pt-1">
-              <label class="cursor-pointer px-2 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-medium rounded-xl text-center transition-colors flex items-center justify-center space-x-1">
+            <!-- Botones de Acción de Plantilla -->
+            <div class="grid grid-cols-2 gap-1.5 pt-0.5">
+              <label class="cursor-pointer px-2 py-1 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-medium rounded-lg text-center transition-colors flex items-center justify-center space-x-1">
                 <input type="file" id="template-upload" accept=".docx" class="hidden" onchange="handleTemplateUpload(event)">
-                <i class="ph ph-upload-simple"></i>
-                <span class="text-[11px]">Subir .docx</span>
+                <i class="ph ph-upload-simple text-xs"></i>
+                <span class="text-[10px]">Subir .docx</span>
               </label>
 
-              <a href="/api/templates/model" download class="px-2 py-1.5 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl text-center transition-colors flex items-center justify-center space-x-1" title="Descargar plantilla base editable">
-                <i class="ph ph-download-simple"></i>
-                <span class="text-[11px]">Ver Modelo</span>
+              <a href="/api/templates/model" download class="px-2 py-1 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-lg text-center transition-colors flex items-center justify-center space-x-1" title="Descargar plantilla base editable">
+                <i class="ph ph-download-simple text-xs"></i>
+                <span class="text-[10px]">Ver Modelo</span>
               </a>
             </div>
 
             <div id="tpl-reset-container" class="hidden pt-1 text-center border-t border-slate-100 dark:border-slate-700/60">
-              <button onclick="resetTemplate()" class="text-[10px] text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 font-medium transition-colors">
+              <button onclick="resetTemplate()" class="text-[9.5px] text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 font-medium transition-colors">
                 ↺ Volver a plantilla estándar
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Sugerencias de Planeación -->
-        <div>
-          <div class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+        <!-- Sección 3: Ejemplos para probar (Exactamente 2 opciones compactas) -->
+        <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800">
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
             Ejemplos para probar
           </div>
-          <div class="space-y-1 text-xs">
-            <button onclick="fillPrompt('Crea un plan diario para 4° Grado en Matemáticas sobre Fracciones Propias e Impropias. Duración 50 minutos con actividad lúdica grupal.')" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 truncate transition-colors">
-              📐 Fracciones para 4° grado
+          <div class="space-y-1">
+            <button onclick="fillPrompt('Crea un plan diario para 4° Grado en Matemáticas sobre Fracciones Propias e Impropias. Duración 50 minutos con actividad lúdica grupal.')" class="w-full text-left px-2 py-1 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 truncate transition-colors text-[10.5px]">
+              📐 Fracciones (4° grado)
             </button>
-            <button onclick="fillPrompt('Arma un plan de clase de Ciencias Naturales para 6° grado sobre el Ciclo del Agua y los cambios de estado. Incluye una experiencia práctica de laboratorio.')" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 truncate transition-colors">
-              🔬 Ciclo del agua con laboratorio
-            </button>
-            <button onclick="fillPrompt('Genera una clase de Lengua y Literatura para 2° año sobre Cuentos Policiales. Foco en indicios, sospechosos y deducción lógica. 60 minutos.')" class="w-full text-left p-2.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 truncate transition-colors">
-              📖 Cuentos Policiales (Secundaria)
+            <button onclick="fillPrompt('Arma un plan de clase de Ciencias Naturales para 6° grado sobre el Ciclo del Agua y los cambios de estado. Incluye una experiencia práctica de laboratorio.')" class="w-full text-left px-2 py-1 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 truncate transition-colors text-[10.5px]">
+              🔬 Ciclo del agua (6° grado)
             </button>
           </div>
         </div>
+
       </div>
 
       <!-- Pie de Sidebar -->
-      <div class="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+      <div class="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
         <span class="flex items-center space-x-1.5">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Kantan v0.1</span>
+          <span>Keyoku v0.1</span>
         </span>
-        <a href="/docs" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400 font-medium">Swagger API</a>
+        <a href="/docs" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400 font-medium text-[10px]">Swagger API</a>
       </div>
     </div>
   </aside>
@@ -200,8 +202,7 @@
           <i class="ph ph-list text-xl"></i>
         </button>
         <span class="font-semibold text-slate-800 dark:text-slate-100 text-sm flex items-center space-x-2">
-          <span>Planificador Pedagógico Kantan</span>
-          <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 hidden sm:inline">· Made by MarC</span>
+          <span>Planificador Pedagógico Keyoku</span>
           <span class="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200/60 dark:border-blue-900">v0.1</span>
         </span>
       </div>
@@ -236,7 +237,7 @@
           Pídeme estructurar un <strong>Plan Diario</strong> de clase para cualquier materia y grado. Puedo basarme en tus documentos anteriores y exportar todo listo a formato <strong>Word (.docx)</strong>.
         </p>
 
-        <!-- Tarjetas interactivas -->
+        <!-- Tarjetas interactivas de inicio -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 w-full text-left">
           <div onclick="fillPrompt('Crea un plan diario de Matemática para 5° Grado sobre Área y Perímetro de figuras simples. 50 minutos con ejercicios prácticos.')" class="p-4 bg-slate-50 dark:bg-slate-800/60 hover:bg-blue-50/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500 rounded-2xl cursor-pointer transition-all">
             <i class="ph ph-shapes text-blue-600 dark:text-blue-400 text-xl mb-2 block"></i>
@@ -283,7 +284,7 @@
         </div>
       </form>
       <p class="text-[11px] text-center text-slate-400 dark:text-slate-500 mt-2">
-        Kantan puede consultar tus documentos históricos para asegurar continuidad pedagógica y exportar en .docx
+        Keyoku puede consultar tus documentos históricos para asegurar continuidad pedagógica y exportar en .docx
       </p>
     </div>
   </main>
@@ -294,7 +295,7 @@
 
     // ── GESTIÓN DE TEMA (MODO OSCURO / CLARO) ──
     function initTheme() {
-      const savedTheme = localStorage.getItem("kantan-theme");
+      const savedTheme = localStorage.getItem("keyoku-theme");
       if (savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
         document.documentElement.classList.add("dark");
         updateThemeUI(true);
@@ -306,7 +307,7 @@
 
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle("dark");
-      localStorage.setItem("kantan-theme", isDark ? "dark" : "light");
+      localStorage.setItem("keyoku-theme", isDark ? "dark" : "light");
       updateThemeUI(isDark);
     }
 
@@ -367,23 +368,23 @@
 
         if (docs.length === 0) {
           listEl.innerHTML = `
-            <div class="p-3 bg-white/70 dark:bg-slate-800/40 rounded-xl text-slate-400 dark:text-slate-500 text-center italic text-[11px] border border-slate-100 dark:border-slate-800">
-              No hay documentos subidos aún.<br>Sube un .docx para darle contexto a la IA.
+            <div class="p-2 bg-white/70 dark:bg-slate-800/40 rounded-xl text-slate-400 dark:text-slate-500 text-center italic text-[10px] border border-slate-100 dark:border-slate-800">
+              No hay documentos subidos aún.
             </div>
           `;
           return;
         }
 
         listEl.innerHTML = docs.map(d => `
-          <div class="flex items-center justify-between p-2.5 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 hover:border-blue-400 dark:hover:border-blue-500 transition-all">
-            <div class="flex items-center space-x-2.5 overflow-hidden">
-              <input type="checkbox" id="doc-${d.id}" value="${d.id}" onchange="toggleDocContext(${d.id})" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
-              <label for="doc-${d.id}" class="truncate cursor-pointer">
-                <span class="font-medium text-slate-800 dark:text-slate-200 block truncate">${d.original_name}</span>
-                <span class="text-[10px] text-slate-400 dark:text-slate-500">${d.subject || 'General'} · ${d.chunk_count} chunks</span>
+          <div class="flex items-center justify-between p-2 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/80 hover:border-blue-400 dark:hover:border-blue-500 transition-all">
+            <div class="flex items-center space-x-2 overflow-hidden">
+              <input type="checkbox" id="doc-${d.id}" value="${d.id}" onchange="toggleDocContext(${d.id})" class="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer">
+              <label for="doc-${d.id}" class="truncate cursor-pointer leading-tight">
+                <span class="font-medium text-slate-800 dark:text-slate-200 block truncate text-[11px]">${d.original_name}</span>
+                <span class="text-[9.5px] text-slate-400 dark:text-slate-500">${d.subject || 'General'} · ${d.chunk_count} chunks</span>
               </label>
             </div>
-            <span class="w-2 h-2 rounded-full ${d.processing_status === 'processed' ? 'bg-emerald-500' : 'bg-amber-400'} shrink-0 ml-1"></span>
+            <span class="w-1.5 h-1.5 rounded-full ${d.processing_status === 'processed' ? 'bg-emerald-500' : 'bg-amber-400'} shrink-0 ml-1"></span>
           </div>
         `).join("");
       } catch (err) {
@@ -663,7 +664,7 @@
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Plan_Diario_Kantan.docx`;
+      a.download = `Plan_Diario_Keyoku.docx`;
       document.body.appendChild(a);
       a.click();
       a.remove();

@@ -80,7 +80,7 @@ class PlanDocxBuilder:
         sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         sub_p.paragraph_format.space_after = Pt(12)
         inst_text = datos.institucion or "Planificación Docente"
-        sub_run = sub_p.add_run(f"{inst_text} — Proyecto Kantan")
+        sub_run = sub_p.add_run(f"{inst_text} — Proyecto Keyoku")
         sub_run.font.size = Pt(10)
         sub_run.font.color.rgb = COLOR_SECONDARY
 

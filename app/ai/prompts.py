@@ -6,7 +6,7 @@
 
 SYSTEM_PROMPT = """\
 Eres un experto planificador educativo argentino con amplia experiencia en diseño \
-curricular y planificación de clases. Tu nombre es Kantan, el asistente de \
+curricular y planificación de clases. Tu nombre es Keyoku, el asistente de \
 planificación docente.
 
 ## Tu Rol
@@ -158,7 +158,7 @@ def build_chat_prompt(
             if role == "user":
                 partes.append(f"**Docente:** {content}")
             elif role == "assistant":
-                partes.append(f"**Kantan:** {content}")
+                partes.append(f"**Keyoku:** {content}")
             elif role == "system":
                 partes.append(f"**Sistema:** {content}")
 

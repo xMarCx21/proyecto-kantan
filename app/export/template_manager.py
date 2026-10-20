@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 TEMPLATES_DIR = Path(settings.upload_dir) / "templates"
-BASE_TEMPLATE_PATH = TEMPLATES_DIR / "plantilla_modelo_kantan.docx"
+BASE_TEMPLATE_PATH = TEMPLATES_DIR / "plantilla_modelo_keyoku.docx"
 
 
 def ensure_templates_dir():

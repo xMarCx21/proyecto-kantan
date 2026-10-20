@@ -75,7 +75,7 @@ async def index_view():
     html_file = TEMPLATES_DIR / "index.html"
     if html_file.exists():
         return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>Proyecto Kantan</h1><p>Cargando interfaz...</p>")
+    return HTMLResponse("<h1>Proyecto Keyoku</h1><p>Cargando interfaz...</p>")
 
 
 # ── Healthcheck & Estado ──

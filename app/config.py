@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
 
     # ── Aplicación ──
-    app_name: str = "Proyecto Kantan"
+    app_name: str = "Proyecto Keyoku"
     app_env: str = "development"
     debug: bool = True
     secret_key: str = "dev-secret-key-cambiar-en-produccion"

@@ -29,7 +29,7 @@ async def template_status(
 
     return {
         "has_custom_template": custom_path is not None,
-        "template_name": template_name or "Plantilla Estándar Kantan",
+        "template_name": template_name or "Plantilla Estándar Keyoku",
     }
 
 
@@ -70,7 +70,7 @@ async def download_model_template():
     return FileResponse(
         path=str(model_path),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename="Plantilla_Modelo_Kantan_Con_Logo.docx",
+        filename="Plantilla_Modelo_Keyoku_Con_Logo.docx",
     )
 
 
