@@ -111,7 +111,7 @@ class GeminiClient:
             config.system_instruction = system_instruction
 
         models_to_try = [self._model]
-        for fb in ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash"]:
+        for fb in ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"]:
             if fb not in models_to_try:
                 models_to_try.append(fb)
 
@@ -164,7 +164,7 @@ class GeminiClient:
             config.system_instruction = system_instruction
 
         models_to_try = [self._model]
-        for fb in ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash"]:
+        for fb in ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"]:
             if fb not in models_to_try:
                 models_to_try.append(fb)
 

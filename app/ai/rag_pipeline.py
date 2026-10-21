@@ -151,3 +151,121 @@ class RAGPipeline:
         # 3. Stream desde el LLM
         async for chunk in self.llm.generate_stream(full_prompt, system_instruction=SYSTEM_PROMPT):
             yield chunk
+
+    async def generate_structured_plan(
+        self,
+        user_id: int,
+        user_message: str,
+        document_ids: list[int] | None = None,
+        chat_history: list[dict] | None = None,
+        current_plan: dict | None = None,
+    ) -> dict:
+        """Genera o actualiza un plan diario estructurado en formato JSON con la IA."""
+        import json
+        import re
+        from datetime import datetime
+
+        rag_context = await self.retrieve_context(user_id, user_message, document_ids)
+        hist_text = "\n".join(
+            [f"{h.get('role', 'user')}: {h.get('content', '')}" for h in (chat_history or [])[-6:]]
+        )
+
+        prompt = f"""Eres Keyoku, asistente experto en diseño pedagógico y curricular.
+Tu tarea es generar o actualizar un Plan Diario de Clase estructurado en formato JSON.
+
+INSTRUCCIÓN DEL DOCENTE:
+"{user_message}"
+
+HISTORIAL RECIENTE:
+{hist_text}
+
+PLAN PREVIO A MODIFICAR (si existe, conserva todos sus campos y cambia ÚNICAMENTE lo que el docente solicita):
+{json.dumps(current_plan, ensure_ascii=False) if current_plan else "No hay plan previo. Genera una planificación completa nueva."}
+
+{rag_context if rag_context else ""}
+
+INSTRUCCIONES ESTRICTAS:
+1. Si el docente pide una modificación (por ejemplo: "cambia el docente a Prof. Marcelo López", "modifica el objetivo a...", "ajusta el tiempo a 80 minutos", "agrega recursos..."), modifica EXACTAMENTE ESE CAMPO. NUNCA pongas la instrucción del docente dentro del campo 'objetivo'. El 'objetivo' siempre debe ser una meta pedagógica (ej: "Comprender los procesos sociales y causas económicas...").
+2. Si el docente indica su nombre (ej: "docente: Marcelo López" o "profesor Juan"), asígnalo al campo "docente".
+3. Devuelve ÚNICAMENTE un objeto JSON válido (sin backticks, sin explicaciones adicionales) con esta estructura exacta:
+{{
+  "materia": "nombre de la materia o asignatura",
+  "grado": "grado, año o nivel escolar",
+  "docente": "nombre del docente o 'No especificado'",
+  "institucion": "nombre de la institución educativa o 'Institución Educativa'",
+  "fecha": "{datetime.now().strftime('%d/%m/%Y')}",
+  "duracion_minutos": 60,
+  "tema": "tema de la clase",
+  "objetivo": "objetivo pedagógico claro y concreto",
+  "contenidos": ["contenido 1", "contenido 2"],
+  "inicio_desc": "apertura y recuperación de saberes previos",
+  "inicio_duracion": 10,
+  "inicio_actividades": ["actividad inicial 1"],
+  "desarrollo_desc": "actividades centrales y desarrollo",
+  "desarrollo_duracion": 40,
+  "desarrollo_actividades": ["actividad de desarrollo 1", "actividad 2"],
+  "cierre_desc": "síntesis y evaluación de cierre",
+  "cierre_duracion": 10,
+  "cierre_actividades": ["actividad de cierre"],
+  "recursos": ["recurso 1", "recurso 2"],
+  "evaluacion_tipo": "Formativa y Continua",
+  "evaluacion_desc": "descripción de la evaluación",
+  "evaluacion_criterios": ["criterio 1", "criterio 2"]
+}}"""
+
+        try:
+            raw_response = await self.llm.generate(prompt, system_instruction=SYSTEM_PROMPT)
+            cleaned = raw_response.strip()
+            if "```json" in cleaned:
+                cleaned = cleaned.split("```json")[1].split("```")[0].strip()
+            elif "```" in cleaned:
+                cleaned = cleaned.split("```")[1].split("```")[0].strip()
+
+            parsed = json.loads(cleaned)
+            # Asegurar que tenga todos los campos mínimos
+            required_keys = ["materia", "grado", "docente", "tema", "objetivo"]
+            if all(k in parsed for k in required_keys):
+                return parsed
+        except Exception as e:
+            logger.warning("No se pudo parsear JSON directo de Gemini: %s", e)
+
+        # Respaldo inteligente si falla la conexión de IA o formato
+        fallback_plan = current_plan.copy() if current_plan else {
+            "materia": "Planificación Docente",
+            "grado": "Clase Diaria",
+            "docente": "No especificado",
+            "institucion": "Institución Educativa",
+            "fecha": datetime.now().strftime("%d/%m/%Y"),
+            "duracion_minutos": 60,
+            "tema": user_message[:50],
+            "objetivo": "Propiciar la apropiación significativa de los contenidos mediante actividades activas y colaborativas.",
+            "contenidos": ["Conceptos nodales de la clase", "Estrategias de resolución", "Actividades prácticas"],
+            "inicio_desc": "Recuperación de ideas previas y consigna disparadora inicial.",
+            "inicio_duracion": 10,
+            "inicio_actividades": ["Preguntas guía", "Debate introductorio"],
+            "desarrollo_desc": "Trabajo activo en secuencias didácticas y resolución colaborativa.",
+            "desarrollo_duracion": 40,
+            "desarrollo_actividades": ["Ejercitación práctica", "Puesta en común por equipos"],
+            "cierre_desc": "Evaluación formativa, resolución de dudas y ticket de salida.",
+            "cierre_duracion": 10,
+            "cierre_actividades": ["Síntesis final", "Rúbrica de autoevaluación"],
+            "recursos": ["Material bibliográfico", "Pizarrón / Proyector", "Fichas de trabajo"],
+            "evaluacion_tipo": "Formativa y Continua",
+            "evaluacion_desc": "Monitoreo del desempeño y participación grupal.",
+            "evaluacion_criterios": ["Comprensión conceptual", "Colaboración", "Entrega de actividades"],
+        }
+
+        # Extraer si el usuario pidió cambiar docente
+        doc_match = re.search(r'(?:docente|profesor|profesora|nombre)\s*(?:es|sea|a|:)?\s*([A-Za-zÁÉÍÓÚáéíóúñÑ\s\.]+)', user_message, re.IGNORECASE)
+        if doc_match:
+            doc_val = doc_match.group(1).strip()
+            # Limpiar conectores finales si hubiera
+            doc_val = re.split(r'(?:y|en|con|para)', doc_val)[0].strip()
+            if doc_val:
+                fallback_plan["docente"] = doc_val
+
+        # Extraer si el usuario pidió un tema específico
+        if not current_plan and len(user_message.strip()) > 3:
+            fallback_plan["tema"] = user_message[:60].strip()
+
+        return fallback_plan

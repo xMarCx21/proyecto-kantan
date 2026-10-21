@@ -30,9 +30,20 @@ class ChatMessageRequest(BaseModel):
     history: list[dict] = []
 
 
+class GeneratePlanRequest(BaseModel):
+    message: str
+    document_ids: list[int] = []
+    history: list[dict] = []
+    current_plan: dict | None = None
+
+
 class ExportPlanRequest(BaseModel):
     materia: str = "Matemáticas"
     grado: str = "4° Grado"
+    docente: str = "Docente"
+    institucion: str = "Institución Educativa"
+    fecha: str = ""
+    duracion_minutos: int = 60
     tema: str = "Plan de Clase"
     objetivo: str = "Desarrollar comprensión de los contenidos."
     contenidos: list[str] = ["Conceptos fundamentales", "Aplicación práctica"]
@@ -40,7 +51,7 @@ class ExportPlanRequest(BaseModel):
     inicio_duracion: int = 10
     inicio_actividades: list[str] = ["Preguntas disparadoras", "Lluvia de ideas"]
     desarrollo_desc: str = "Explicación interactiva y ejercitación guiada."
-    desarrollo_duracion: int = 30
+    desarrollo_duracion: int = 40
     desarrollo_actividades: list[str] = ["Trabajo en equipos", "Resolución de problemas"]
     cierre_desc: str = "Puesta en común, síntesis y evaluación rápida."
     cierre_duracion: int = 10
@@ -71,6 +82,23 @@ async def chat_stream(
     return EventSourceResponse(event_generator())
 
 
+@router.post("/generate-plan", summary="Generar o modificar plan estructurado con IA")
+async def generate_plan(
+    payload: GeneratePlanRequest,
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Genera o actualiza el plan pedagógico estructurado en JSON según la orden del docente."""
+    user_id = current_user.id if current_user else 1
+    plan_data = await pipeline.generate_structured_plan(
+        user_id=user_id,
+        user_message=payload.message,
+        document_ids=payload.document_ids,
+        chat_history=payload.history,
+        current_plan=payload.current_plan,
+    )
+    return plan_data
+
+
 @router.post("/export-docx", summary="Generar y descargar documento Word")
 async def export_docx(
     payload: ExportPlanRequest,
@@ -87,10 +115,10 @@ async def export_docx(
             datos_generales=DatosGenerales(
                 materia=payload.materia,
                 grado=payload.grado,
-                fecha=datetime.now().strftime("%d/%m/%Y"),
-                duracion_minutos=payload.inicio_duracion + payload.desarrollo_duracion + payload.cierre_duracion,
-                docente="Docente",
-                institucion="Institución Educativa",
+                fecha=payload.fecha or datetime.now().strftime("%d/%m/%Y"),
+                duracion_minutos=payload.duracion_minutos or (payload.inicio_duracion + payload.desarrollo_duracion + payload.cierre_duracion),
+                docente=payload.docente or "Docente",
+                institucion=payload.institucion or "Institución Educativa",
             ),
             objetivo=payload.objetivo,
             contenidos=payload.contenidos or [payload.tema],

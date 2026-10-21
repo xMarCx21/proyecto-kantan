@@ -293,6 +293,7 @@
   <script>
     let chatHistory = [];
     let selectedDocuments = new Set();
+    let currentPlanData = null;
 
     // ── GESTIÓN DE TEMA (MODO OSCURO / CLARO) ──
     function initTheme() {
@@ -522,7 +523,7 @@
       const message = input.value.trim();
       if (!message) return;
 
-      // Ocultar bienvenida de forma suave
+      // Ocultar bienvenida de forma suave sin corte en negro
       const welcome = document.getElementById("welcome-view");
       if (welcome) {
         welcome.style.transition = "opacity 0.2s ease-out";
@@ -536,22 +537,23 @@
       // Renderizar mensaje del usuario
       appendUserMessage(message);
 
-      // Crear burbuja del asistente con indicador de carga
+      // Crear burbuja del asistente con ÚNICAMENTE el estado de carga
       const assistantBubble = appendAssistantPlaceholder();
       const loadingState = assistantBubble.querySelector(".loading-state");
-      const contentDiv = assistantBubble.querySelector(".content");
+      const planCard = assistantBubble.querySelector(".plan-card");
 
       // Guardar en historial
       chatHistory.push({ role: "user", content: message });
 
       try {
-        const res = await fetch("/api/chat/stream", {
+        const res = await fetch("/api/chat/generate-plan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: message,
             document_ids: Array.from(selectedDocuments),
             history: chatHistory,
+            current_plan: currentPlanData,
           }),
         });
 
@@ -559,58 +561,31 @@
           throw new Error(`El servidor respondió con código ${res.status}`);
         }
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let assistantText = "";
-        let hasTokens = false;
+        const planData = await res.json();
+        currentPlanData = planData;
 
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          const chunkStr = decoder.decode(value, { stream: true });
-          const lines = chunkStr.split("\n");
-          for (const rawLine of lines) {
-            const line = rawLine.trim();
-            if (line.startsWith("data:")) {
-              const token = line.slice(5).replace(/^ /, "");
-              if (!hasTokens && token.trim().length > 0) {
-                hasTokens = true;
-                if (loadingState) loadingState.classList.add("hidden");
-                contentDiv.classList.remove("hidden");
-              }
-              assistantText += token;
-              if (contentDiv.classList.contains("hidden")) {
-                if (loadingState) loadingState.classList.add("hidden");
-                contentDiv.classList.remove("hidden");
-              }
-              contentDiv.innerHTML = marked.parse(assistantText);
-              scrollToBottom();
-            }
-          }
-        }
+        // Historial interno
+        chatHistory.push({
+          role: "assistant",
+          content: `Plan generado: ${planData.tema} (${planData.materia} - ${planData.grado}). Docente: ${planData.docente}`
+        });
 
-        // Al finalizar completamente la generación:
+        // Ocultar mensaje de carga y revelar tarjeta con botón de descarga
         if (loadingState) loadingState.classList.add("hidden");
-        contentDiv.classList.remove("hidden");
-
-        if (assistantText.trim().length > 0) {
-          chatHistory.push({ role: "assistant", content: assistantText });
-          // RECIÉN AQUÍ, cuando el texto terminó de generarse, se muestra el botón de descargar Word
-          appendExportCard(assistantBubble, message);
-        } else {
-          contentDiv.innerHTML = `<p class="text-amber-500 font-medium">No se recibió texto de respuesta. Por favor intenta reformular tu solicitud.</p>`;
-        }
+        renderPlanResult(planCard, planData);
 
       } catch (err) {
         if (loadingState) loadingState.classList.add("hidden");
-        contentDiv.classList.remove("hidden");
-        contentDiv.innerHTML = `<div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-3.5 rounded-2xl text-xs text-rose-700 dark:text-rose-300 flex items-start space-x-2">
-          <i class="ph ph-warning-circle text-base shrink-0 mt-0.5"></i>
-          <div>
-            <div class="font-semibold">Inconveniente al procesar la solicitud</div>
-            <div>${err.message}. Puedes verificar tu conexión o reintentar tu consulta.</div>
+        planCard.classList.remove("hidden");
+        planCard.innerHTML = `
+          <div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-3.5 rounded-2xl text-xs text-rose-700 dark:text-rose-300 flex items-start space-x-2">
+            <i class="ph ph-warning-circle text-base shrink-0 mt-0.5"></i>
+            <div>
+              <div class="font-semibold">Inconveniente al generar la planificación</div>
+              <div>${err.message}. Por favor intenta de nuevo.</div>
+            </div>
           </div>
-        </div>`;
+        `;
       }
     }
 
@@ -635,7 +610,7 @@
         <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-sky-400 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
           <i class="ph ph-sparkle text-sm"></i>
         </div>
-        <div class="flex-1 bg-gemini-50 dark:bg-slate-800/80 rounded-3xl rounded-tl-sm p-5 text-sm border border-slate-200/60 dark:border-slate-700/80 chat-bubble-assistant transition-colors">
+        <div class="flex-1 bg-gemini-50 dark:bg-slate-800/80 rounded-3xl rounded-tl-sm p-4 text-sm border border-slate-200/60 dark:border-slate-700/80 chat-bubble-assistant transition-colors">
           <div class="loading-state flex items-center space-x-2.5 text-slate-500 dark:text-slate-400 py-1">
             <div class="relative flex h-2.5 w-2.5">
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
@@ -643,8 +618,7 @@
             </div>
             <span class="text-xs font-medium tracking-wide animate-pulse">Generando planificación didáctica...</span>
           </div>
-          <div class="content text-slate-700 dark:text-slate-300 hidden leading-relaxed"></div>
-          <div class="export-area mt-4 pt-3 border-t border-slate-200/70 dark:border-slate-700 hidden"></div>
+          <div class="plan-card hidden"></div>
         </div>
       `;
       messagesContainer.appendChild(wrapper);
@@ -652,64 +626,63 @@
       return wrapper;
     }
 
-    function appendExportCard(assistantBubble, userPrompt) {
-      const exportArea = assistantBubble.querySelector(".export-area");
-      exportArea.classList.remove("hidden");
-      exportArea.innerHTML = `
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900/90 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div class="flex items-center space-x-2.5">
-            <div class="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold">
-              <i class="ph ph-file-doc text-lg"></i>
+    function renderPlanResult(container, plan) {
+      container.classList.remove("hidden");
+      const planJson = encodeURIComponent(JSON.stringify(plan));
+
+      container.innerHTML = `
+        <div class="space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-200/70 dark:border-slate-700">
+            <div class="flex items-center space-x-2">
+              <i class="ph-fill ph-check-circle text-emerald-500 text-base"></i>
+              <span class="font-semibold text-xs text-slate-900 dark:text-white">Planificación didáctica lista</span>
             </div>
-            <div>
-              <div class="font-semibold text-xs text-slate-900 dark:text-white">Documento Oficial de Plan Diario</div>
-              <div class="text-[11px] text-slate-500 dark:text-slate-400">Formateado con Inicio, Desarrollo, Cierre y Evaluación</div>
-            </div>
+            <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/70 dark:bg-slate-700/60 px-2 py-0.5 rounded-full">
+              ${plan.duracion_minutos || 60} min
+            </span>
           </div>
-          <button onclick="downloadDocx('${encodeURIComponent(userPrompt)}')" class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow-sm transition-all hover:shadow">
-            <i class="ph-bold ph-download-simple"></i>
-            <span>Descargar Word (.docx)</span>
-          </button>
+
+          <div class="bg-white/80 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 text-xs space-y-1.5">
+            <div><strong class="text-slate-700 dark:text-slate-200">Materia:</strong> <span class="text-slate-600 dark:text-slate-300">${plan.materia} (${plan.grado})</span></div>
+            <div><strong class="text-slate-700 dark:text-slate-200">Tema:</strong> <span class="text-slate-600 dark:text-slate-300">${plan.tema}</span></div>
+            <div><strong class="text-slate-700 dark:text-slate-200">Docente:</strong> <span class="text-slate-600 dark:text-slate-300">${plan.docente || 'No especificado'}</span></div>
+            <div><strong class="text-slate-700 dark:text-slate-200">Objetivo:</strong> <span class="text-slate-600 dark:text-slate-300">${plan.objetivo}</span></div>
+          </div>
+
+          <div class="pt-1">
+            <button onclick="downloadStructuredPlan('${planJson}')" class="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition-all hover:shadow">
+              <i class="ph-bold ph-download-simple text-sm"></i>
+              <span>Descargar Word (.docx)</span>
+            </button>
+          </div>
         </div>
       `;
       scrollToBottom();
     }
 
-    async function downloadDocx(promptEncoded) {
-      const prompt = decodeURIComponent(promptEncoded);
-      const res = await fetch("/api/chat/export-docx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          materia: "Planificación Docente",
-          grado: "Clase Diaria",
-          tema: prompt.slice(0, 50),
-          objetivo: `Objetivo pedagógico generado para: ${prompt}`,
-          contenidos: ["Conceptos nodales de la clase", "Estrategias de resolución", "Actividades prácticas"],
-          inicio_desc: "Recuperación de ideas previas y consigna disparadora inicial.",
-          inicio_duracion: 10,
-          inicio_actividades: ["Preguntas guía", "Debate introductorio"],
-          desarrollo_desc: "Trabajo activo en secuencias didácticas y resolución colaborativa.",
-          desarrollo_duracion: 30,
-          desarrollo_actividades: ["Ejercitación práctica", "Puesta en común por equipos"],
-          cierre_desc: "Evaluación formativa, resolución de dudas y ticket de salida.",
-          cierre_duracion: 10,
-          cierre_actividades: ["Síntesis final", "Rúbrica de autoevaluación"],
-          recursos: ["Material bibliográfico", "Pizarrón / Proyector", "Fichas de trabajo"],
-          evaluacion_tipo: "Formativa y Continua",
-          evaluacion_desc: "Monitoreo del desempeño y participación grupal.",
-          evaluacion_criterios: ["Comprensión conceptual", "Colaboración", "Entrega de actividades"],
-        })
-      });
+    async function downloadStructuredPlan(planJsonEncoded) {
+      try {
+        const plan = JSON.parse(decodeURIComponent(planJsonEncoded));
+        const res = await fetch("/api/chat/export-docx", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(plan),
+        });
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Plan_Diario_Keyoku.docx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+        if (!res.ok) throw new Error("Error al exportar archivo Word");
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const sanitizedSubject = (plan.materia || "Clase").replace(/\s+/g, "_");
+        a.download = `Plan_Diario_${sanitizedSubject}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (e) {
+        alert("Inconveniente al descargar: " + e.message);
+      }
     }
 
     function scrollToBottom() {
