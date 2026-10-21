@@ -96,15 +96,7 @@ class GeminiClient:
         prompt: str,
         system_instruction: str | None = None,
     ) -> str:
-        """Genera una respuesta de texto completa.
-
-        Args:
-            prompt: Prompt del usuario.
-            system_instruction: Instrucción de sistema opcional.
-
-        Returns:
-            Texto de la respuesta generada.
-        """
+        """Genera una respuesta de texto completa con respaldo multimodelo."""
         if self._client is None:
             return (
                 "¡Hola! He recibido tu consulta pedagógica. "
@@ -118,39 +110,52 @@ class GeminiClient:
         if system_instruction:
             config.system_instruction = system_instruction
 
-        def _call() -> str:
-            response = self._client.models.generate_content(
-                model=self._model,
-                contents=prompt,
-                config=config,
-            )
-            return response.text or ""
+        models_to_try = [self._model]
+        for fb in ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash"]:
+            if fb not in models_to_try:
+                models_to_try.append(fb)
 
-        resultado = await self._retry_with_backoff("generate", _call)
-        logger.debug("Respuesta generada: %d caracteres", len(resultado))
-        return resultado
+        last_err = None
+        for target_model in models_to_try:
+            try:
+                def _call(m=target_model) -> str:
+                    response = self._client.models.generate_content(
+                        model=m,
+                        contents=prompt,
+                        config=config,
+                    )
+                    return response.text or ""
+
+                resultado = await self._retry_with_backoff(f"generate ({target_model})", _call)
+                if resultado:
+                    return resultado
+            except Exception as e:
+                last_err = e
+                logger.warning("Modelo %s falló en generate: %s", target_model, e)
+
+        return f"No se pudo generar la respuesta en este momento ({str(last_err)[:80]})."
 
     async def generate_stream(
         self,
         prompt: str,
         system_instruction: str | None = None,
     ) -> AsyncGenerator[str, None]:
-        """Genera una respuesta de texto en streaming token por token."""
+        """Genera una respuesta de texto en streaming token por token con respaldo."""
         if self._client is None:
             demo_text = (
                 "¡Hola! He recibido tu instrucción pedagógica para armar la clase.\n\n"
-                "*(Nota: Puedes colocar tu `GEMINI_API_KEY` en el archivo `.env` para consultar directamente al modelo Gemini en tiempo real)*.\n\n"
+                "*(Nota: Recuerda configurar tu `GEMINI_API_KEY` en el panel de Render o en `.env` para consultar al modelo Gemini en tiempo real)*.\n\n"
                 "Aquí tienes una propuesta pedagógica adaptada:\n\n"
                 "### 1. Objetivo de Aprendizaje\n"
-                "Favorecer la apropiación de saberes mediante estrategias activas y trabajo colaborativo.\n\n"
+                "Favorecer la apropiación de saberes significativos mediante indagación activa y trabajo colaborativo.\n\n"
                 "### 2. Secuencia Didáctica Propuesta\n"
-                "- **Inicio (10 min)**: Presentación del desafío inicial y recuperación de saberes previos.\n"
-                "- **Desarrollo (30 min)**: Exposición dialogada, actividades prácticas guiadas y análisis grupal.\n"
-                "- **Cierre (10 min)**: Síntesis de aprendizajes, resolución de dudas y rúbrica de autoevaluación.\n\n"
-                "¡Haz clic en **'Descargar Word'** para obtener el documento oficial formateado!"
+                "- **Inicio (10 min)**: Recuperación de ideas previas, preguntas disparadoras y presentación del tema.\n"
+                "- **Desarrollo (30 min)**: Explicación guiada, resolución grupal de actividades prácticas y debate.\n"
+                "- **Cierre (10 min)**: Síntesis de contenidos centrales, metacognición y ticket de salida formativo.\n\n"
+                "¡Tu planificación ya está lista! Haz clic abajo en **'Descargar Word'** para obtener el documento oficial formateado."
             )
             for word in demo_text.split(" "):
-                await asyncio.sleep(0.03)
+                await asyncio.sleep(0.02)
                 yield word + " "
             return
 
@@ -158,23 +163,52 @@ class GeminiClient:
         if system_instruction:
             config.system_instruction = system_instruction
 
-        def _create_stream():
-            return self._client.models.generate_content_stream(
-                model=self._model,
-                contents=prompt,
-                config=config,
+        models_to_try = [self._model]
+        for fb in ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash"]:
+            if fb not in models_to_try:
+                models_to_try.append(fb)
+
+        stream_success = False
+        last_stream_err = None
+
+        for target_model in models_to_try:
+            try:
+                def _create_stream(m=target_model):
+                    return self._client.models.generate_content_stream(
+                        model=m,
+                        contents=prompt,
+                        config=config,
+                    )
+
+                stream = await asyncio.to_thread(_create_stream)
+                has_tokens = False
+                for chunk in stream:
+                    if chunk.text:
+                        has_tokens = True
+                        yield chunk.text
+
+                if has_tokens:
+                    stream_success = True
+                    break
+            except Exception as e:
+                last_stream_err = e
+                logger.warning("Modelo %s falló en generate_stream: %s", target_model, e)
+
+        if not stream_success:
+            logger.error("Todos los modelos de Gemini fallaron: %s", last_stream_err)
+            fallback_msg = (
+                "⚠️ *Aviso de Keyoku:* Ocurrió un error al contactar el servicio de IA de Gemini "
+                f"({str(last_stream_err)[:80]}).\n\n"
+                "A continuación tienes la propuesta pedagógica predeterminada:\n\n"
+                "### Secuencia Didáctica Generada\n"
+                "- **Inicio (10 min)**: Preguntas guía y contextualización del tema.\n"
+                "- **Desarrollo (30 min)**: Actividades prácticas colaborativas y producción de los estudiantes.\n"
+                "- **Cierre (10 min)**: Puesta en común, reflexión y evaluación formativa.\n\n"
+                "Ya puedes descargar la planificación estructurada en Word utilizando el botón a continuación."
             )
-
-        try:
-            stream = await asyncio.to_thread(_create_stream)
-
-            for chunk in stream:
-                if chunk.text:
-                    yield chunk.text
-
-        except Exception as e:
-            logger.error("Error en streaming: %s", e)
-            raise
+            for word in fallback_msg.split(" "):
+                await asyncio.sleep(0.02)
+                yield word + " "
 
     async def generate_embedding(self, text: str) -> list[float]:
         """Genera un vector de embedding para un texto."""

@@ -522,9 +522,13 @@
       const message = input.value.trim();
       if (!message) return;
 
-      // Ocultar bienvenida
+      // Ocultar bienvenida de forma suave
       const welcome = document.getElementById("welcome-view");
-      if (welcome) welcome.remove();
+      if (welcome) {
+        welcome.style.transition = "opacity 0.2s ease-out";
+        welcome.style.opacity = "0";
+        setTimeout(() => welcome.remove(), 200);
+      }
 
       input.value = "";
       input.style.height = "auto";
@@ -532,8 +536,10 @@
       // Renderizar mensaje del usuario
       appendUserMessage(message);
 
-      // Crear burbuja del asistente
+      // Crear burbuja del asistente con indicador de carga
       const assistantBubble = appendAssistantPlaceholder();
+      const loadingState = assistantBubble.querySelector(".loading-state");
+      const contentDiv = assistantBubble.querySelector(".content");
 
       // Guardar en historial
       chatHistory.push({ role: "user", content: message });
@@ -549,32 +555,62 @@
           }),
         });
 
+        if (!res.ok) {
+          throw new Error(`El servidor respondió con código ${res.status}`);
+        }
+
         const reader = res.body.getReader();
         const decoder = new TextDecoder("utf-8");
         let assistantText = "";
+        let hasTokens = false;
 
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-          const chunkStr = decoder.decode(value);
+          const chunkStr = decoder.decode(value, { stream: true });
           const lines = chunkStr.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const token = line.replace("data: ", "");
+          for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (line.startsWith("data:")) {
+              const token = line.slice(5).replace(/^ /, "");
+              if (!hasTokens && token.trim().length > 0) {
+                hasTokens = true;
+                if (loadingState) loadingState.classList.add("hidden");
+                contentDiv.classList.remove("hidden");
+              }
               assistantText += token;
-              assistantBubble.querySelector(".content").innerHTML = marked.parse(assistantText);
+              if (contentDiv.classList.contains("hidden")) {
+                if (loadingState) loadingState.classList.add("hidden");
+                contentDiv.classList.remove("hidden");
+              }
+              contentDiv.innerHTML = marked.parse(assistantText);
               scrollToBottom();
             }
           }
         }
 
-        chatHistory.push({ role: "assistant", content: assistantText });
+        // Al finalizar completamente la generación:
+        if (loadingState) loadingState.classList.add("hidden");
+        contentDiv.classList.remove("hidden");
 
-        // Añadir tarjeta de exportación a Word automática
-        appendExportCard(assistantBubble, message);
+        if (assistantText.trim().length > 0) {
+          chatHistory.push({ role: "assistant", content: assistantText });
+          // RECIÉN AQUÍ, cuando el texto terminó de generarse, se muestra el botón de descargar Word
+          appendExportCard(assistantBubble, message);
+        } else {
+          contentDiv.innerHTML = `<p class="text-amber-500 font-medium">No se recibió texto de respuesta. Por favor intenta reformular tu solicitud.</p>`;
+        }
 
       } catch (err) {
-        assistantBubble.querySelector(".content").innerHTML = `<p class="text-rose-500 font-medium">Hubo un error al procesar tu solicitud: ${err.message}</p>`;
+        if (loadingState) loadingState.classList.add("hidden");
+        contentDiv.classList.remove("hidden");
+        contentDiv.innerHTML = `<div class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-3.5 rounded-2xl text-xs text-rose-700 dark:text-rose-300 flex items-start space-x-2">
+          <i class="ph ph-warning-circle text-base shrink-0 mt-0.5"></i>
+          <div>
+            <div class="font-semibold">Inconveniente al procesar la solicitud</div>
+            <div>${err.message}. Puedes verificar tu conexión o reintentar tu consulta.</div>
+          </div>
+        </div>`;
       }
     }
 
@@ -600,9 +636,14 @@
           <i class="ph ph-sparkle text-sm"></i>
         </div>
         <div class="flex-1 bg-gemini-50 dark:bg-slate-800/80 rounded-3xl rounded-tl-sm p-5 text-sm border border-slate-200/60 dark:border-slate-700/80 chat-bubble-assistant transition-colors">
-          <div class="content text-slate-700 dark:text-slate-300">
-            <span class="inline-block animate-pulse text-slate-400">Generando planificación didáctica...</span>
+          <div class="loading-state flex items-center space-x-2.5 text-slate-500 dark:text-slate-400 py-1">
+            <div class="relative flex h-2.5 w-2.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+            </div>
+            <span class="text-xs font-medium tracking-wide animate-pulse">Generando planificación didáctica...</span>
           </div>
+          <div class="content text-slate-700 dark:text-slate-300 hidden leading-relaxed"></div>
           <div class="export-area mt-4 pt-3 border-t border-slate-200/70 dark:border-slate-700 hidden"></div>
         </div>
       `;

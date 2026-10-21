@@ -11,7 +11,7 @@ async def test_health_check(client: AsyncClient):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "online"
-    assert "Proyecto Kantan" in data["app"]
+    assert "Keyoku" in data["app"]
 
 
 @pytest.mark.asyncio
