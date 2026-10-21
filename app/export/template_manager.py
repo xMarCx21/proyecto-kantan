@@ -315,28 +315,125 @@ def build_template_context(plan: PlanDiario) -> dict:
     return ctx
 
 
+def render_plan_into_raw_template(user_tpl_path: Path, plan: PlanDiario) -> io.BytesIO:
+    """Adapta un documento Word escolar sin etiquetas Jinja2 para usarlo como plantilla base.
+
+    Conserva:
+    1. Márgenes y configuración de página.
+    2. Cabeceras (section.header) y pies de página (section.footer) con sus logos, imágenes y membretes.
+    3. El banner o tabla institucional superior si existe.
+    4. Actualiza los campos de texto detectados (Área, Materia, Grado, Docente, Fecha).
+    5. Reemplaza el contenido antiguo del cuerpo por el nuevo Plan Diario estructurado.
+    """
+    doc = Document(str(user_tpl_path))
+    dg = plan.datos_generales
+
+    # Identificar y actualizar encabezados en el cuerpo
+    header_keywords = [
+        "colegio", "escuela", "instituto", "ministerio", "dirección",
+        "prueba", "evaluación", "plan", "área", "materia", "grado",
+        "docente", "profesor", "alumno", "estudiante", "fecha", "año", "ciclo", "curso"
+    ]
+
+    paragraphs_to_remove = []
+
+    for i, p in enumerate(doc.paragraphs):
+        txt_lower = p.text.lower().strip()
+        if not txt_lower:
+            continue
+
+        # Actualizar campos clave si se detectan
+        if "área:" in txt_lower or "materia:" in txt_lower:
+            label = "Área:" if "área:" in txt_lower else "Materia:"
+            p.text = f"{label} {dg.materia}"
+        elif "grado:" in txt_lower or "curso:" in txt_lower:
+            label = "Grado:" if "grado:" in txt_lower else "Curso:"
+            p.text = f"{label} {dg.grado}"
+        elif "docente:" in txt_lower or "profesor:" in txt_lower or "profesora:" in txt_lower:
+            p.text = f"Docente: {dg.docente or 'No especificado'}"
+        elif "fecha:" in txt_lower:
+            p.text = f"Fecha: {dg.fecha}"
+        else:
+            # Si el párrafo está en los primeros 6 párrafos y contiene palabras de membrete, lo conservamos
+            is_header_p = (i < 6) and any(kw in txt_lower for kw in header_keywords)
+            if not is_header_p:
+                paragraphs_to_remove.append(p)
+
+    # Eliminar párrafos del cuerpo antiguo
+    for p in paragraphs_to_remove:
+        p._element.getparent().remove(p._element)
+
+    # Si había tablas en el documento:
+    # Conservamos únicamente la primera tabla si es una cabecera institucional
+    if len(doc.tables) > 1:
+        for tbl in doc.tables[1:]:
+            tbl._element.getparent().remove(tbl._element)
+
+    # Si la primera tabla contiene campos clave, actualizarlos también
+    if len(doc.tables) >= 1:
+        top_table = doc.tables[0]
+        for row in top_table.rows:
+            for cell in row.cells:
+                c_text = cell.text.lower()
+                if "área:" in c_text or "materia:" in c_text:
+                    label = "Área:" if "área:" in c_text else "Materia:"
+                    cell.text = f"{label} {dg.materia}"
+                elif "grado:" in c_text or "curso:" in c_text:
+                    label = "Grado:" if "grado:" in c_text else "Curso:"
+                    cell.text = f"{label} {dg.grado}"
+                elif "docente:" in c_text or "profesor:" in c_text:
+                    cell.text = f"Docente: {dg.docente or 'No especificado'}"
+                elif "fecha:" in c_text:
+                    cell.text = f"Fecha: {dg.fecha}"
+
+    # 2. Agregar la nueva secuencia pedagógica estructurada generada por Keyoku
+    builder = PlanDocxBuilder()
+    builder.doc = doc
+
+    builder._add_objetivo(plan.objetivo)
+    builder._add_contenidos(plan.contenidos)
+    builder._add_secuencia_didactica(plan.secuencia_didactica)
+    builder._add_recursos_y_evaluacion(plan.recursos, plan.evaluacion)
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
 def render_plan_to_docx(plan: PlanDiario, user_id: int = 1) -> io.BytesIO:
     """Renderiza el plan utilizando la plantilla personalizada o el builder predeterminado.
 
-    Si el usuario subió una plantilla personalizada, docxtpl la rellena manteniendo
-    su logo, colores, membrete e imágenes intactos.
-    Si no tiene plantilla o si la plantilla personalizada falla, usa PlanDocxBuilder como respaldo seguro.
+    Si el usuario subió una plantilla personalizada:
+    - Si tiene etiquetas Jinja2 ({{ ... }}), docxtpl las rellena manteniendo su formato.
+    - Si NO tiene etiquetas Jinja2 (un documento Word real del colegio con membrete/logo),
+      se conservan su cabecera, logo y márgenes y se inyecta la planificación didáctica completa.
+    - Si no tiene plantilla o si ocurre un fallo, usa PlanDocxBuilder como respaldo seguro.
     """
     user_tpl_path = get_user_template_path(user_id)
 
     if user_tpl_path and user_tpl_path.exists():
         try:
-            logger.info("Renderizando plan con plantilla personalizada de usuario %d: %s", user_id, user_tpl_path)
+            logger.info("Procesando plantilla personalizada de usuario %d: %s", user_id, user_tpl_path)
             tpl = DocxTemplate(str(user_tpl_path))
-            context = build_template_context(plan)
-            tpl.render(context)
+            declared_tags = tpl.get_undeclared_template_variables()
 
-            buffer = io.BytesIO()
-            tpl.save(buffer)
-            buffer.seek(0)
-            return buffer
+            # Caso 1: La plantilla contiene etiquetas Jinja2 explícitas
+            if declared_tags and len(declared_tags) > 0:
+                logger.info("Plantilla con %d etiquetas Jinja2 detectadas. Renderizando con docxtpl.", len(declared_tags))
+                context = build_template_context(plan)
+                tpl.render(context)
+                buffer = io.BytesIO()
+                tpl.save(buffer)
+                buffer.seek(0)
+                return buffer
+
+            # Caso 2: Documento Word real sin etiquetas Jinja2 (se adapta automáticamente conservando membrete y logo)
+            logger.info("Plantilla sin etiquetas Jinja2. Adaptando documento para preservar membrete y logo institucional.")
+            return render_plan_into_raw_template(user_tpl_path, plan)
+
         except Exception as e:
-            logger.warning("Error al renderizar plantilla personalizada (%s). Usando generador estándar: %s", user_tpl_path, e)
+            logger.warning("Error al renderizar plantilla personalizada (%s): %s. Usando generador estándar.", user_tpl_path, e)
 
     # Si no hay plantilla personalizada o hubo error, usar el generador estándar con estilo profesional
     builder = PlanDocxBuilder()
