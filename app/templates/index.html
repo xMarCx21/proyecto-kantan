@@ -626,9 +626,18 @@
       return wrapper;
     }
 
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
     function renderPlanResult(container, plan) {
       container.classList.remove("hidden");
-      const planJson = encodeURIComponent(JSON.stringify(plan));
 
       container.innerHTML = `
         <div class="space-y-3">
@@ -643,45 +652,71 @@
           </div>
 
           <div class="bg-white/80 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 text-xs space-y-1.5">
-            <div><strong class="text-slate-700 dark:text-slate-200">Materia:</strong> <span class="text-slate-600 dark:text-slate-300">${plan.materia} (${plan.grado})</span></div>
-            <div><strong class="text-slate-700 dark:text-slate-200">Tema:</strong> <span class="text-slate-600 dark:text-slate-300">${plan.tema}</span></div>
-            <div><strong class="text-slate-700 dark:text-slate-200">Docente:</strong> <span class="text-slate-600 dark:text-slate-300">${plan.docente || 'No especificado'}</span></div>
-            <div><strong class="text-slate-700 dark:text-slate-200">Objetivo:</strong> <span class="text-slate-600 dark:text-slate-300">${plan.objetivo}</span></div>
+            <div><strong class="text-slate-700 dark:text-slate-200">Materia:</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHtml(plan.materia)} (${escapeHtml(plan.grado)})</span></div>
+            <div><strong class="text-slate-700 dark:text-slate-200">Tema:</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHtml(plan.tema)}</span></div>
+            <div><strong class="text-slate-700 dark:text-slate-200">Docente:</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHtml(plan.docente || 'No especificado')}</span></div>
+            <div><strong class="text-slate-700 dark:text-slate-200">Objetivo:</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHtml(plan.objetivo)}</span></div>
           </div>
 
           <div class="pt-1">
-            <button onclick="downloadStructuredPlan('${planJson}')" class="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition-all hover:shadow">
+            <button type="button" class="btn-download-word w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition-all hover:shadow cursor-pointer">
               <i class="ph-bold ph-download-simple text-sm"></i>
               <span>Descargar Word (.docx)</span>
             </button>
           </div>
         </div>
       `;
+
+      // Conexión directa del botón evitando problemas de comillas o sintaxis en atributos HTML
+      const btn = container.querySelector(".btn-download-word");
+      if (btn) {
+        btn.addEventListener("click", () => downloadStructuredPlan(plan, btn));
+      }
+
       scrollToBottom();
     }
 
-    async function downloadStructuredPlan(planJsonEncoded) {
+    async function downloadStructuredPlan(plan, btn = null) {
+      let originalBtnHtml = "";
+      if (btn) {
+        originalBtnHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<i class="ph ph-circle-notch animate-spin text-sm"></i><span>Preparando documento...</span>`;
+      }
+
       try {
-        const plan = JSON.parse(decodeURIComponent(planJsonEncoded));
         const res = await fetch("/api/chat/export-docx", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(plan),
         });
 
-        if (!res.ok) throw new Error("Error al exportar archivo Word");
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Error en el servidor (${res.status})`);
+        }
 
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
+        a.style.display = "none";
         a.href = url;
         const sanitizedSubject = (plan.materia || "Clase").replace(/\s+/g, "_");
         a.download = `Plan_Diario_${sanitizedSubject}.docx`;
         document.body.appendChild(a);
         a.click();
-        a.remove();
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+          a.remove();
+        }, 1500);
       } catch (e) {
+        console.error("Error al descargar:", e);
         alert("Inconveniente al descargar: " + e.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalBtnHtml;
+        }
       }
     }
 
