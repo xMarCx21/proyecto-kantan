@@ -160,7 +160,7 @@ class RAGPipeline:
         chat_history: list[dict] | None = None,
         current_plan: dict | None = None,
     ) -> dict:
-        """Genera o actualiza un plan diario estructurado en formato JSON con la IA."""
+        """Genera o actualiza una planificación didáctica y ejercitario práctico completo (MEC Paraguay)."""
         import json
         import re
         from datetime import datetime
@@ -170,13 +170,13 @@ class RAGPipeline:
             [f"{h.get('role', 'user')}: {h.get('content', '')}" for h in (chat_history or [])[-6:]]
         )
 
-        prompt = f"""Eres Keyoku, asistente experto en diseño pedagógico y curricular.
-Tu tarea es generar o actualizar un Plan Diario de Clase estructurado en formato JSON.
+        prompt = f"""Eres Keyoku, planificador pedagógico oficial de la Educación Escolar Básica (MEC Paraguay).
+Tu objetivo es generar o actualizar una PLANIFICACIÓN DIARIA OFICIAL COMPLETA JUNTO CON SU EJERCITARIO PRÁCTICO PARA EL AULA.
 
 INSTRUCCIÓN DEL DOCENTE:
 "{user_message}"
 
-HISTORIAL RECIENTE:
+HISTORIAL DE LA CONVERSACIÓN:
 {hist_text}
 
 PLAN PREVIO A MODIFICAR (si existe, conserva todos sus campos y cambia ÚNICAMENTE lo que el docente solicita):
@@ -184,34 +184,87 @@ PLAN PREVIO A MODIFICAR (si existe, conserva todos sus campos y cambia ÚNICAMEN
 
 {rag_context if rag_context else ""}
 
-INSTRUCCIONES ESTRICTAS:
-1. Si el docente pide una modificación (por ejemplo: "cambia el docente a Prof. Marcelo López", "modifica el objetivo a...", "ajusta el tiempo a 80 minutos", "agrega recursos..."), modifica EXACTAMENTE ESE CAMPO. NUNCA pongas la instrucción del docente dentro del campo 'objetivo'. El 'objetivo' siempre debe ser una meta pedagógica (ej: "Comprender los procesos sociales y causas económicas...").
-2. Si el docente indica su nombre (ej: "docente: Marcelo López" o "profesor Juan"), asígnalo al campo "docente".
-3. Devuelve ÚNICAMENTE un objeto JSON válido (sin backticks, sin explicaciones adicionales) con esta estructura exacta:
+INSTRUCCIONES CLAVE DE CONTENIDO Y ESTRUCTURA (MEC PARAGUAY):
+1. **Curricular:** Incluye Área, Grado, Mes, Año, Tiempo, Unidad Temática, Tema, Capacidades oficiales, Indicadores observables y precisos, Momentos didácticos sintetizados e Instrumento evaluativo (por defecto: 'R.S.A.').
+2. **Ficha de Clase y Ejercitario Práctico:**
+   - **situacion_disparadora:** Situación o problema inicial contextualizado de la vida real (ej. compra en despensa, viaje escolar, terreno familiar, actividades deportivas) que despierta el interés.
+   - **conceptualizacion:** Explicación teórica clara con fórmulas, definiciones y reglas clave ('Para saber / Para recordar').
+   - **problemas:** Lista de 2 o 3 problemas prácticos contextualizados listos para que los alumnos resuelvan en el aula. Cada problema DEBE tener:
+     - 'numero': entero
+     - 'enunciado': texto del problema
+     - 'datos': qué datos se extraen
+     - 'formula': fórmula o esquema aplicable
+     - 'solucion': desarrollo de los cálculos
+     - 'respuesta': redacción completa de la respuesta
+   - **ejercicios_aplicacion:** Lista de 2 o 3 ejercicios directos complementarios (conversiones de unidades, clasificaciones o cálculos directos).
+3. **Modificaciones:** Si el docente pide cambiar el docente, tema, grado, etc., modifica únicamente ese campo y preserva el resto. NUNCA pongas la orden del usuario en el objetivo.
+4. Devuelve ÚNICAMENTE un JSON válido (sin backticks, sin texto adicional) con esta estructura:
 {{
-  "materia": "nombre de la materia o asignatura",
-  "grado": "grado, año o nivel escolar",
+  "materia": "nombre del área (ej. Matemática, Ciencias Naturales)",
+  "grado": "grado escolar (ej. 5° Grado)",
+  "mes": "Setiembre/Octubre",
+  "ano": 2026,
   "docente": "nombre del docente o 'No especificado'",
   "institucion": "nombre de la institución educativa o 'Institución Educativa'",
   "fecha": "{datetime.now().strftime('%d/%m/%Y')}",
-  "duracion_minutos": 60,
-  "tema": "tema de la clase",
-  "objetivo": "objetivo pedagógico claro y concreto",
-  "contenidos": ["contenido 1", "contenido 2"],
-  "inicio_desc": "apertura y recuperación de saberes previos",
-  "inicio_duracion": 10,
-  "inicio_actividades": ["actividad inicial 1"],
-  "desarrollo_desc": "actividades centrales y desarrollo",
-  "desarrollo_duracion": 40,
-  "desarrollo_actividades": ["actividad de desarrollo 1", "actividad 2"],
-  "cierre_desc": "síntesis y evaluación de cierre",
-  "cierre_duracion": 10,
-  "cierre_actividades": ["actividad de cierre"],
-  "recursos": ["recurso 1", "recurso 2"],
+  "duracion_minutos": 80,
+  "unidad_tematica": "El número y las operaciones / La geometría y la medida",
+  "tema": "Tema específico de la clase",
+  "objetivo": "Objetivo pedagógico claro",
+  "capacidades": [
+    "Comprende el problema enunciado.",
+    "Identifica estrategias requeridas para la solución de problemas.",
+    "Ejecuta el plan de solución aplicando fórmulas de resolución.",
+    "Examina la solución obtenida y comunica la respuesta adecuadamente."
+  ],
+  "indicadores": [
+    "Interpreta el enunciado del problema.",
+    "Aplica correctamente las fórmulas y conceptos aprendidos.",
+    "Opera sin error los algoritmos matemáticos requeridos.",
+    "Comunica la respuesta considerando la unidad de medida correspondiente."
+  ],
+  "momentos_didacticos_resumen": "Observamos la situación disparadora inicial, analizamos información teórica, deducimos fórmulas en el pizarrón y resolvemos ejercicios en el cuaderno.",
+  "instrumento_evaluativo": "R.S.A.",
+  "situacion_disparadora": "Texto narrativo o problema cotidiano motivador para abrir la clase.",
+  "conceptualizacion": "Definiciones y fórmulas destacadas para recordar y aplicar.",
+  "problemas": [
+    {{
+      "numero": 1,
+      "enunciado": "Enunciado del problema de la vida cotidiana...",
+      "datos": "Datos extraídos...",
+      "formula": "Fórmula aplicable...",
+      "solucion": "Operaciones matemáticas...",
+      "respuesta": "Respuesta completa..."
+    }},
+    {{
+      "numero": 2,
+      "enunciado": "Enunciado del segundo problema...",
+      "datos": "Datos...",
+      "formula": "Fórmula...",
+      "solucion": "Operaciones...",
+      "respuesta": "Respuesta..."
+    }}
+  ],
+  "ejercicios_aplicacion": [
+    "Ejercicio 1 de aplicación directa o conversión",
+    "Ejercicio 2 de aplicación directa"
+  ],
+  "contenidos": ["Concepto fundamental", "Fórmulas y procedimientos", "Resolución de situaciones problemáticas"],
+  "inicio_desc": "Presentación de la situación disparadora y recuperación de saberes previos.",
+  "inicio_duracion": 15,
+  "inicio_actividades": ["Lectura guiada de la situación inicial", "Lluvia de ideas y preguntas orientadoras"],
+  "desarrollo_desc": "Conceptualización interactiva, deducción de fórmulas y modelado de ejemplos.",
+  "desarrollo_duracion": 50,
+  "desarrollo_actividades": ["Explicación en el pizarrón", "Resolución colaborativa de ejercicios guiados"],
+  "cierre_desc": "Trabajo individual en el cuaderno, síntesis formativa y registro de indicadores.",
+  "cierre_duracion": 15,
+  "cierre_actividades": ["Resolución autónoma de los problemas", "Puesta en común y autoevaluación"],
+  "recursos": ["Cuaderno del alumno", "Pizarrón y marcadores", "Fichas didácticas de trabajo", "Material concreto"],
   "evaluacion_tipo": "Formativa y Continua",
-  "evaluacion_desc": "descripción de la evaluación",
-  "evaluacion_criterios": ["criterio 1", "criterio 2"]
-}}"""
+  "evaluacion_desc": "Registro de Secuencia de Aprendizaje (R.S.A.) mediante observación directa.",
+  "evaluacion_criterios": ["Identificación de datos", "Uso correcto de algoritmos", "Comunicación de respuestas"]
+}}
+"""
 
         try:
             raw_response = await self.llm.generate(prompt, system_instruction=SYSTEM_PROMPT)
@@ -222,50 +275,106 @@ INSTRUCCIONES ESTRICTAS:
                 cleaned = cleaned.split("```")[1].split("```")[0].strip()
 
             parsed = json.loads(cleaned)
-            # Asegurar que tenga todos los campos mínimos
-            required_keys = ["materia", "grado", "docente", "tema", "objetivo"]
-            if all(k in parsed for k in required_keys):
+            required_keys = ["materia", "grado", "tema", "capacidades", "indicadores"]
+            if any(k in parsed for k in required_keys):
+                parsed.setdefault("unidad_tematica", "El número y las operaciones")
+                parsed.setdefault("instrumento_evaluativo", "R.S.A.")
+                parsed.setdefault("problemas", [])
+                parsed.setdefault("ejercicios_aplicacion", [])
+                parsed.setdefault("docente", "No especificado")
+                parsed.setdefault("institucion", "Institución Educativa")
+                parsed.setdefault("fecha", datetime.now().strftime("%d/%m/%Y"))
+                parsed.setdefault("duracion_minutos", 80)
+                parsed.setdefault("mes", "Setiembre/Octubre")
+                parsed.setdefault("ano", 2026)
                 return parsed
         except Exception as e:
-            logger.warning("No se pudo parsear JSON directo de Gemini: %s", e)
+            logger.warning("Fallo al consultar IA para plan estructurado: %s", e)
 
-        # Respaldo inteligente si falla la conexión de IA o formato
-        fallback_plan = current_plan.copy() if current_plan else {
-            "materia": "Planificación Docente",
-            "grado": "Clase Diaria",
+        # Generador pedagógico de respaldo enriquecido
+        tema_sugerido = user_message[:60].strip() if len(user_message.strip()) > 3 else "Perímetro y Área de Figuras Planas"
+        fallback = current_plan.copy() if current_plan else {
+            "materia": "Matemática",
+            "grado": "5° Grado",
+            "mes": "Setiembre",
+            "ano": 2026,
             "docente": "No especificado",
             "institucion": "Institución Educativa",
             "fecha": datetime.now().strftime("%d/%m/%Y"),
-            "duracion_minutos": 60,
-            "tema": user_message[:50],
-            "objetivo": "Propiciar la apropiación significativa de los contenidos mediante actividades activas y colaborativas.",
-            "contenidos": ["Conceptos nodales de la clase", "Estrategias de resolución", "Actividades prácticas"],
-            "inicio_desc": "Recuperación de ideas previas y consigna disparadora inicial.",
-            "inicio_duracion": 10,
-            "inicio_actividades": ["Preguntas guía", "Debate introductorio"],
-            "desarrollo_desc": "Trabajo activo en secuencias didácticas y resolución colaborativa.",
-            "desarrollo_duracion": 40,
-            "desarrollo_actividades": ["Ejercitación práctica", "Puesta en común por equipos"],
-            "cierre_desc": "Evaluación formativa, resolución de dudas y ticket de salida.",
-            "cierre_duracion": 10,
-            "cierre_actividades": ["Síntesis final", "Rúbrica de autoevaluación"],
-            "recursos": ["Material bibliográfico", "Pizarrón / Proyector", "Fichas de trabajo"],
+            "duracion_minutos": 80,
+            "unidad_tematica": "El número y las operaciones / La geometría y la medida",
+            "tema": tema_sugerido,
+            "objetivo": f"Comprender, deducir y aplicar los conceptos fundamentales referentes a {tema_sugerido} en la resolución de situaciones problemáticas de la vida cotidiana.",
+            "capacidades": [
+                "Comprende el problema enunciado.",
+                "Identifica estrategias requeridas para la solución de problemas.",
+                "Ejecuta el plan de solución al problema planteado.",
+                f"Examina la solución obtenida aplicando nociones de {tema_sugerido}.",
+                "Lee, comprende y utiliza vocabulario y notación adecuados al contexto."
+            ],
+            "indicadores": [
+                f"Interpreta la información referente a {tema_sugerido}.",
+                "Determina la unidad fundamental y las fórmulas aplicables.",
+                "Opera sin error los algoritmos matemáticos requeridos.",
+                "Resuelve situaciones problemáticas aplicando los procedimientos aprendidos.",
+                "Comunica la respuesta en forma coherente considerando la unidad de medida."
+            ],
+            "momentos_didacticos_resumen": "Observamos la situación disparadora inicial, analizamos la información teórica en el pizarrón, deducimos las fórmulas y resolvemos problemas en el cuaderno.",
+            "instrumento_evaluativo": "R.S.A.",
+            "situacion_disparadora": f"En la comunidad escolar se organizó una jornada deportiva y recreativa. Para acondicionar el patio, se necesita delimitar y calcular los espacios necesarios para las canchas y áreas verdes. Los estudiantes analizan las medidas y dimensiones para determinar los materiales que se deben utilizar.",
+            "conceptualizacion": f"Para resolver situaciones problemáticas de {tema_sugerido}, identificamos los datos del problema, seleccionamos la fórmula o procedimiento correspondiente y realizamos las operaciones cuidando el orden de las unidades.",
+            "problemas": [
+                {
+                    "numero": 1,
+                    "enunciado": "Don Aurelio desea cercar un terreno rectangular de 35 metros de largo y 20 metros de ancho con 4 vueltas de alambre. ¿Cuántos metros de alambre necesitará comprar?",
+                    "datos": "Largo = 35 m, Ancho = 20 m, Vueltas = 4",
+                    "formula": "P = 2 x (Largo + Ancho); Total = P x 4",
+                    "solucion": "P = 2 x (35 m + 20 m) = 2 x 55 m = 110 m\nTotal = 110 m x 4 = 440 m",
+                    "respuesta": "Don Aurelio necesitará comprar 440 metros de alambre."
+                },
+                {
+                    "numero": 2,
+                    "enunciado": "Se desea colocar baldosas a una superficie cuadrangular de 15 metros de lado. ¿Cuál es el área total que será embaldosada en metros cuadrados?",
+                    "datos": "Lado = 15 m",
+                    "formula": "Área = Lado x Lado (A = l²)",
+                    "solucion": "Área = 15 m x 15 m = 225 m²",
+                    "respuesta": "La superficie total a embaldosar es de 225 m²."
+                }
+            ],
+            "ejercicios_aplicacion": [
+                "Expresa las medidas obtenidas en las unidades de conversión requeridas.",
+                "Realiza el cálculo de verificación en tu cuaderno y contrasta tu resultado con tu compañero."
+            ],
+            "contenidos": [
+                f"Conceptos y propiedades de {tema_sugerido}",
+                "Deducción y aplicación de fórmulas",
+                "Resolución y formulación de situaciones problemáticas"
+            ],
+            "inicio_desc": "Lectura y análisis de la situación disparadora, preguntas motivadoras y recuperación de saberes previos.",
+            "inicio_duracion": 15,
+            "inicio_actividades": ["Lectura grupal del problema disparador", "Identificación de ideas previas"],
+            "desarrollo_desc": "Deducción de fórmulas y conceptos en el pizarrón con participación activa de los alumnos.",
+            "desarrollo_duracion": 50,
+            "desarrollo_actividades": ["Explicación dialogada", "Resolución guiada del primer problema modelo"],
+            "cierre_desc": "Trabajo individual de resolución de problemas en el cuaderno y registro de indicadores de logro (R.S.A.).",
+            "cierre_duracion": 15,
+            "cierre_actividades": ["Resolución de ejercicios prácticos", "Puesta en común de resultados"],
+            "recursos": ["Cuaderno de trabajo", "Pizarrón", "Regla, compás y cinta métrica", "Material fotocopiado"],
             "evaluacion_tipo": "Formativa y Continua",
-            "evaluacion_desc": "Monitoreo del desempeño y participación grupal.",
-            "evaluacion_criterios": ["Comprensión conceptual", "Colaboración", "Entrega de actividades"],
+            "evaluacion_desc": "Registro de Secuencia de Aprendizaje (R.S.A.) y lista de cotejo de desempeño.",
+            "evaluacion_criterios": ["Identificación de datos", "Procedimiento algorítmico", "Respuesta contextualizada"]
         }
 
-        # Extraer si el usuario pidió cambiar docente
+        # Extraer si el usuario pidió modificar docente
         doc_match = re.search(r'(?:docente|profesor|profesora|nombre)\s*(?:es|sea|a|:)?\s*([A-Za-zÁÉÍÓÚáéíóúñÑ\s\.]+)', user_message, re.IGNORECASE)
         if doc_match:
-            doc_val = doc_match.group(1).strip()
-            # Limpiar conectores finales si hubiera
-            doc_val = re.split(r'(?:y|en|con|para)', doc_val)[0].strip()
+            doc_val = re.split(r'\b(?:y|en|con|para)\b', doc_match.group(1).strip())[0].strip()
             if doc_val:
-                fallback_plan["docente"] = doc_val
+                fallback["docente"] = doc_val
 
-        # Extraer si el usuario pidió un tema específico
-        if not current_plan and len(user_message.strip()) > 3:
-            fallback_plan["tema"] = user_message[:60].strip()
+        # Extraer si el usuario pidió grado
+        grado_match = re.search(r'([1-9]°?\s*(?:grado|año))', user_message, re.IGNORECASE)
+        if grado_match:
+            fallback["grado"] = grado_match.group(1).capitalize()
 
-        return fallback_plan
+        return fallback

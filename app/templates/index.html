@@ -639,35 +639,77 @@
     function renderPlanResult(container, plan) {
       container.classList.remove("hidden");
 
+      const caps = plan.capacidades || [];
+      const inds = plan.indicadores || [];
+      const probs = plan.problemas || [];
+
+      const capsHtml = caps.length > 0 ? `
+        <div>
+          <span class="font-semibold text-slate-700 dark:text-slate-200 block mb-1">Capacidades:</span>
+          <ul class="list-disc list-inside space-y-0.5 text-slate-600 dark:text-slate-300">
+            ${caps.slice(0, 3).map(c => `<li>${escapeHtml(c)}</li>`).join("")}
+          </ul>
+        </div>
+      ` : "";
+
+      const indsHtml = inds.length > 0 ? `
+        <div>
+          <span class="font-semibold text-slate-700 dark:text-slate-200 block mb-1">Indicadores (R.S.A.):</span>
+          <ul class="list-disc list-inside space-y-0.5 text-slate-600 dark:text-slate-300">
+            ${inds.slice(0, 3).map(i => `<li>${escapeHtml(i)}</li>`).join("")}
+          </ul>
+        </div>
+      ` : "";
+
+      const fichaHtml = probs.length > 0 ? `
+        <div class="p-2.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/40 text-[11px] text-blue-900 dark:text-blue-300">
+          <div class="font-semibold flex items-center space-x-1.5 mb-1">
+            <i class="ph ph-chalkboard-teacher text-sm"></i>
+            <span>Ficha de Clase y Ejercitario incluidos:</span>
+          </div>
+          <div class="space-y-0.5 text-slate-600 dark:text-slate-300">
+            <div>• ${probs.length} problema(s) práctico(s) con cuadrante <strong>Datos | Fórmula o Dibujo | Solución | Respuesta</strong>.</div>
+            <div>• Rúbrica oficial R.S.A. con casillas de verificación [ L ] y [ NL ].</div>
+          </div>
+        </div>
+      ` : "";
+
       container.innerHTML = `
         <div class="space-y-3">
           <div class="flex items-center justify-between pb-2 border-b border-slate-200/70 dark:border-slate-700">
             <div class="flex items-center space-x-2">
               <i class="ph-fill ph-check-circle text-emerald-500 text-base"></i>
-              <span class="font-semibold text-xs text-slate-900 dark:text-white">Planificación didáctica lista</span>
+              <span class="font-semibold text-xs text-slate-900 dark:text-white">Planificación didáctica y Ficha de clase listas</span>
             </div>
             <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/70 dark:bg-slate-700/60 px-2 py-0.5 rounded-full">
-              ${plan.duracion_minutos || 60} min
+              ${plan.duracion_minutos || 80} min
             </span>
           </div>
 
-          <div class="bg-white/80 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 text-xs space-y-1.5">
-            <div><strong class="text-slate-700 dark:text-slate-200">Materia:</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHtml(plan.materia)} (${escapeHtml(plan.grado)})</span></div>
-            <div><strong class="text-slate-700 dark:text-slate-200">Tema:</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHtml(plan.tema)}</span></div>
-            <div><strong class="text-slate-700 dark:text-slate-200">Docente:</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHtml(plan.docente || 'No especificado')}</span></div>
-            <div><strong class="text-slate-700 dark:text-slate-200">Objetivo:</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHtml(plan.objetivo)}</span></div>
+          <div class="bg-white/80 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 text-xs space-y-2">
+            <div class="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800 pb-2">
+              <div><strong class="text-slate-700 dark:text-slate-200">Materia:</strong> ${escapeHtml(plan.materia)}</div>
+              <div><strong class="text-slate-700 dark:text-slate-200">Grado:</strong> ${escapeHtml(plan.grado)}</div>
+              <div><strong class="text-slate-700 dark:text-slate-200">Tema:</strong> ${escapeHtml(plan.tema)}</div>
+              <div><strong class="text-slate-700 dark:text-slate-200">Docente:</strong> ${escapeHtml(plan.docente || 'No especificado')}</div>
+            </div>
+
+            ${plan.unidad_tematica ? `<div><strong class="text-slate-700 dark:text-slate-200">Unidad Temática:</strong> <span class="text-slate-600 dark:text-slate-300">${escapeHtml(plan.unidad_tematica)}</span></div>` : ""}
+            
+            ${capsHtml}
+            ${indsHtml}
+            ${fichaHtml}
           </div>
 
           <div class="pt-1">
             <button type="button" class="btn-download-word w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition-all hover:shadow cursor-pointer">
               <i class="ph-bold ph-download-simple text-sm"></i>
-              <span>Descargar Word (.docx)</span>
+              <span>Descargar Word Oficial (.docx)</span>
             </button>
           </div>
         </div>
       `;
 
-      // Conexión directa del botón evitando problemas de comillas o sintaxis en atributos HTML
       const btn = container.querySelector(".btn-download-word");
       if (btn) {
         btn.addEventListener("click", () => downloadStructuredPlan(plan, btn));

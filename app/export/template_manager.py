@@ -259,7 +259,28 @@ def build_template_context(plan: PlanDiario) -> dict:
     des_act = "\n".join(f"• {a}" for a in sd.desarrollo.actividades) if sd.desarrollo.actividades else ""
     cie_act = "\n".join(f"• {a}" for a in sd.cierre.actividades) if sd.cierre.actividades else ""
 
+    caps_str = "\n".join(f"• {c}" for c in (plan.capacidades or []))
+    inds_str = "\n".join(f"• {i}" for i in (plan.indicadores or []))
+
     ctx = {
+        # Curricular Oficial MEC
+        "CAPACIDADES": caps_str,
+        "capacidades": caps_str,
+        "INDICADORES": inds_str,
+        "indicadores": inds_str,
+        "UNIDAD_TEMATICA": plan.unidad_tematica,
+        "unidad_tematica": plan.unidad_tematica,
+        "TEMA": plan.tema,
+        "tema": plan.tema,
+        "MOMENTOS": plan.momentos_didacticos_resumen,
+        "momentos": plan.momentos_didacticos_resumen,
+        "INSTRUMENTO": plan.instrumento_evaluativo,
+        "instrumento": plan.instrumento_evaluativo,
+        "SITUACION_DISPARADORA": plan.situacion_disparadora,
+        "situacion_disparadora": plan.situacion_disparadora,
+        "CONCEPTUALIZACION": plan.conceptualizacion,
+        "conceptualizacion": plan.conceptualizacion,
+
         # Generales
         "MATERIA": dg.materia,
         "materia": dg.materia,
@@ -386,14 +407,10 @@ def render_plan_into_raw_template(user_tpl_path: Path, plan: PlanDiario) -> io.B
                 elif "fecha:" in c_text:
                     cell.text = f"Fecha: {dg.fecha}"
 
-    # 2. Agregar la nueva secuencia pedagógica estructurada generada por Keyoku
-    builder = PlanDocxBuilder()
-    builder.doc = doc
-
-    builder._add_objetivo(plan.objetivo)
-    builder._add_contenidos(plan.contenidos)
-    builder._add_secuencia_didactica(plan.secuencia_didactica)
-    builder._add_recursos_y_evaluacion(plan.recursos, plan.evaluacion)
+    # 2. Agregar la planificación oficial y la ficha de clase con ejercitario práctico
+    builder = PlanDocxBuilder(doc=doc)
+    builder._add_mec_curricular_table(plan)
+    builder._add_worksheet_section(plan)
 
     buffer = io.BytesIO()
     doc.save(buffer)

@@ -17,6 +17,7 @@ from app.schemas.plan import (
     DatosGenerales,
     Evaluacion,
     PlanDiario,
+    ProblemaPractico,
     SecuenciaDidactica,
 )
 
@@ -38,28 +39,39 @@ class GeneratePlanRequest(BaseModel):
 
 
 class ExportPlanRequest(BaseModel):
-    materia: str = "Matemáticas"
-    grado: str = "4° Grado"
-    docente: str = "Docente"
+    materia: str = "Matemática"
+    grado: str = "5° Grado"
+    docente: str = "No especificado"
     institucion: str = "Institución Educativa"
     fecha: str = ""
-    duracion_minutos: int = 60
+    duracion_minutos: int = 80
+    mes: str = "Setiembre"
+    ano: int = 2026
+    unidad_tematica: str = "El número y las operaciones"
     tema: str = "Plan de Clase"
-    objetivo: str = "Desarrollar comprensión de los contenidos."
-    contenidos: list[str] = ["Conceptos fundamentales", "Aplicación práctica"]
-    inicio_desc: str = "Recuperación de conocimientos previos y activación."
-    inicio_duracion: int = 10
-    inicio_actividades: list[str] = ["Preguntas disparadoras", "Lluvia de ideas"]
-    desarrollo_desc: str = "Explicación interactiva y ejercitación guiada."
-    desarrollo_duracion: int = 40
-    desarrollo_actividades: list[str] = ["Trabajo en equipos", "Resolución de problemas"]
-    cierre_desc: str = "Puesta en común, síntesis y evaluación rápida."
-    cierre_duracion: int = 10
-    cierre_actividades: list[str] = ["Ticket de salida", "Preguntas de metacognición"]
-    recursos: list[str] = ["Pizarrón", "Cuaderno", "Guía de actividades"]
+    objetivo: str = "Desarrollar y aplicar los conocimientos."
+    capacidades: list[str] = []
+    indicadores: list[str] = []
+    momentos_didacticos_resumen: str = ""
+    instrumento_evaluativo: str = "R.S.A."
+    situacion_disparadora: str = ""
+    conceptualizacion: str = ""
+    problemas: list[dict] = []
+    ejercicios_aplicacion: list[str] = []
+    contenidos: list[str] = []
+    inicio_desc: str = ""
+    inicio_duracion: int = 15
+    inicio_actividades: list[str] = []
+    desarrollo_desc: str = ""
+    desarrollo_duracion: int = 50
+    desarrollo_actividades: list[str] = []
+    cierre_desc: str = ""
+    cierre_duracion: int = 15
+    cierre_actividades: list[str] = []
+    recursos: list[str] = []
     evaluacion_tipo: str = "Formativa"
-    evaluacion_desc: str = "Observación directa y retroalimentación continua."
-    evaluacion_criterios: list[str] = ["Participación activa", "Resolución adecuada"]
+    evaluacion_desc: str = "R.S.A."
+    evaluacion_criterios: list[str] = []
 
 
 @router.post("/stream", summary="Chat con IA y streaming de tokens")
@@ -111,16 +123,46 @@ async def export_docx(
     """
     user_id = current_user.id if current_user else 1
     try:
+        # Mapear problemas estructurados
+        problemas_objs = []
+        for p in (payload.problemas or []):
+            if isinstance(p, dict):
+                problemas_objs.append(ProblemaPractico(**p))
+            elif isinstance(p, ProblemaPractico):
+                problemas_objs.append(p)
+
         plan = PlanDiario(
             datos_generales=DatosGenerales(
                 materia=payload.materia,
                 grado=payload.grado,
                 fecha=payload.fecha or datetime.now().strftime("%d/%m/%Y"),
-                duracion_minutos=payload.duracion_minutos or (payload.inicio_duracion + payload.desarrollo_duracion + payload.cierre_duracion),
-                docente=payload.docente or "Docente",
+                duracion_minutos=payload.duracion_minutos or 80,
+                docente=payload.docente or "No especificado",
                 institucion=payload.institucion or "Institución Educativa",
+                mes=payload.mes or "Setiembre",
+                ano=payload.ano or 2026,
             ),
+            unidad_tematica=payload.unidad_tematica or "El número y las operaciones",
+            tema=payload.tema or payload.materia,
             objetivo=payload.objetivo,
+            capacidades=payload.capacidades or [
+                "Comprende el problema enunciado.",
+                "Identifica estrategias requeridas para la solución de problemas.",
+                "Ejecuta el plan de solución.",
+                "Examina la solución obtenida y comunica la respuesta adecuadamente.",
+            ],
+            indicadores=payload.indicadores or [
+                "Interpreta la información del problema.",
+                "Aplica correctamente la fórmula o algoritmo.",
+                "Opera sin error los cálculos requeridos.",
+                "Comunica la respuesta considerando la unidad requerida.",
+            ],
+            momentos_didacticos_resumen=payload.momentos_didacticos_resumen or "Observamos situación inicial, conceptualizamos y resolvemos ejercicios en el cuaderno.",
+            instrumento_evaluativo=payload.instrumento_evaluativo or "R.S.A.",
+            situacion_disparadora=payload.situacion_disparadora or "",
+            conceptualizacion=payload.conceptualizacion or "",
+            problemas=problemas_objs,
+            ejercicios_aplicacion=payload.ejercicios_aplicacion or [],
             contenidos=payload.contenidos or [payload.tema],
             secuencia_didactica=SecuenciaDidactica(
                 inicio=ActividadSecuencia(
@@ -139,11 +181,11 @@ async def export_docx(
                     actividades=payload.cierre_actividades,
                 ),
             ),
-            recursos=payload.recursos,
+            recursos=payload.recursos or ["Cuaderno del alumno", "Pizarrón", "Fichas didácticas"],
             evaluacion=Evaluacion(
-                tipo=payload.evaluacion_tipo,
-                descripcion=payload.evaluacion_desc,
-                criterios=payload.evaluacion_criterios,
+                tipo=payload.evaluacion_tipo or "Formativa",
+                descripcion=payload.evaluacion_desc or "R.S.A.",
+                criterios=payload.evaluacion_criterios or ["Identificación de datos", "Cálculo", "Respuesta"],
             ),
         )
 
